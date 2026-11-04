@@ -2240,6 +2240,14 @@ long kgsl_ioctl_gpu_command(struct kgsl_device_private *dev_priv,
 				i, &param->timestamp);
 
 done:
+	/* TIMELM bring-up probe (TEMPORARY) */
+	if (result == -EFAULT)
+		dev_err_ratelimited(device->dev,
+			"TIMELMKGSL: GPU_COMMAND -EFAULT ctx=%u flags=0x%llx cmd=%u/%u obj=%u/%u sync=%u/%u\n",
+			param->context_id, param->flags, param->numcmds,
+			param->cmdsize, param->numobjs, param->objsize,
+			param->numsyncs, param->syncsize);
+
 	/*
 	 * -EPROTO is a "success" error - it just tells the user that the
 	 * context had previously faulted

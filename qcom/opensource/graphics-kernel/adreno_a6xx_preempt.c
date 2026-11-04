@@ -4,6 +4,7 @@
  * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
+
 #include "adreno.h"
 #include "adreno_a6xx.h"
 #include "adreno_pm4types.h"

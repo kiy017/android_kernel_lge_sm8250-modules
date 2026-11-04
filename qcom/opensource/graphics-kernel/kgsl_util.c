@@ -134,6 +134,9 @@ int kgsl_zap_shader_load(struct device *dev, const char *name)
 
 	mem_phys = res.start;
 
+	dev_err(dev, "TIMELMKGSL: zap %s size=%zd region_start=%pa region_size=%pa\n",
+		name, mem_size, &res.start, &res.end);
+
 	mem_region = memremap(mem_phys, mem_size, MEMREMAP_WC);
 	if (!mem_region) {
 		ret = -ENOMEM;
@@ -148,6 +151,9 @@ int kgsl_zap_shader_load(struct device *dev, const char *name)
 	}
 
 	ret = qcom_scm_pas_auth_and_reset(GPU_PASID);
+
+	dev_err(dev, "TIMELMKGSL: pas_auth_and_reset(%d) ret=%d\n",
+		GPU_PASID, ret);
 
 out:
 	if (mem_region)

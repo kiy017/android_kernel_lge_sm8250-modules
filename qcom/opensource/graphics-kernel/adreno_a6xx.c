@@ -22,6 +22,50 @@
 #include "kgsl_trace.h"
 #include "kgsl_util.h"
 
+/*
+ * TIMELM bring-up instrumentation (TEMPORARY - strip before shipping).
+ *
+ * Dump the CP privilege / register protection state.  Everything here is
+ * dev_err() because Android init lowers the console loglevel after ~9s and
+ * only pr_err-level messages reach the ramoops console log.
+ */
+static void timelm_kgsl_dump(struct kgsl_device *device, const char *tag)
+{
+	/*
+	 * timelm: per-GPU-start register dump; only keep the fault case in the
+	 * log (the start path runs on every wake and flooded the console /
+	 * pstore rings, img60).  Still on the strip list.
+	 */
+	u32 apriv = 0, misc = 0, prot = 0, prot3 = 0, secvid = 0;
+	u32 rb_cntl = 0, intstatus = 0;
+
+	if (strcmp(tag, "protect_fault"))
+		return;
+
+	kgsl_regread(device, A6XX_CP_APRIV_CNTL, &apriv);
+	kgsl_regread(device, A6XX_CP_MISC_CNTL, &misc);
+	kgsl_regread(device, A6XX_CP_PROTECT_CNTL, &prot);
+	kgsl_regread(device, A6XX_CP_PROTECT_REG + 3, &prot3);
+	kgsl_regread(device, A6XX_RBBM_SECVID_TRUST_CNTL, &secvid);
+	kgsl_regread(device, A6XX_CP_RB_CNTL, &rb_cntl);
+	kgsl_regread(device, A6XX_CP_INTERRUPT_STATUS, &intstatus);
+
+	dev_err(device->dev,
+		"TIMELMKGSL[%s]: APRIV=%08x MISC=%08x PROTCNTL=%08x PROT3=%08x SECVID=%08x RBCNTL=%08x INT=%08x\n",
+		tag, apriv, misc, prot, prot3, secvid, rb_cntl, intstatus);
+}
+
+/*
+ * TIMELM bring-up fallback (TEMPORARY - strip before shipping).
+ *
+ * Set when the CP reports a register protection violation.  The GPU is
+ * restarted after every fault, and a6xx_protect_init() then disables register
+ * protection (CP_PROTECT_CNTL = 0) instead of programming the table, so that
+ * the rest of the bring-up can proceed even if CP_SET_PROTECTED_MODE is not
+ * enough to let the internal streams write privileged registers.
+ */
+static bool timelm_kgsl_prot_off;
+
 /* IFPC & Preemption static powerup restore list */
 static u32 a6xx_pwrup_reglist[] = {
 	A6XX_VSC_ADDR_MODE_CNTL,
@@ -246,6 +290,14 @@ static void a6xx_protect_init(struct adreno_device *adreno_dev)
 	const struct adreno_protected_regs *regs = a6xx_core->protected_regs;
 	int i;
 
+	/* TIMELM bring-up fallback (TEMPORARY) */
+	if (timelm_kgsl_prot_off) {
+		kgsl_regwrite(device, A6XX_CP_PROTECT_CNTL, 0);
+		dev_err(device->dev,
+			"TIMELMKGSL: register protection DISABLED (fallback, CP_PROTECT_CNTL=0)\n");
+		return;
+	}
+
 	/*
 	 * Enable access protection to privileged registers, fault on an access
 	 * protect violation and select the last span to protect from the start
@@ -268,6 +320,9 @@ static void a6xx_protect_init(struct adreno_device *adreno_dev)
 			(regs[i].start & 0x3ffff) | ((count & 0x1fff) << 18) |
 			(regs[i].noaccess << 31));
 	}
+
+	/* TIMELM bring-up probe (TEMPORARY) */
+	timelm_kgsl_dump(device, "protect_init");
 }
 
 static inline unsigned int
@@ -800,6 +855,9 @@ void a6xx_start(struct adreno_device *adreno_dev)
 
 	a6xx_set_secvid(device);
 
+	/* TIMELM bring-up probe (TEMPORARY) */
+	timelm_kgsl_dump(device, "start_after_secvid");
+
 	/*
 	 * Enable hardware clock gating here to prevent any register access
 	 * issue due to internal clock gating.
@@ -1106,6 +1164,9 @@ static int a6xx_post_start(struct adreno_device *adreno_dev)
 				"hw preemption initialization failed to idle\n");
 	}
 
+	/* TIMELM bring-up probe (TEMPORARY) */
+	timelm_kgsl_dump(device, "post_start");
+
 	return ret;
 }
 
@@ -1162,13 +1223,38 @@ int a6xx_rb_start(struct adreno_device *adreno_dev)
 	/* Clear the SQE_HALT to start the CP engine */
 	kgsl_regwrite(device, A6XX_CP_SQE_CNTL, 1);
 
+	/* TIMELM bring-up probe (TEMPORARY) */
+	timelm_kgsl_dump(device, "rb_start_sqe_on");
+
+	/*
+	 * TIMELM note: img39 wrote CP_MISC_CNTL = 1 here to try to grant the
+	 * privilege the CP is missing.  The bit is APRIV (see
+	 * adreno_a6xx_snapshot.c), it did read back as 1, and the 0x50e write
+	 * still faulted - CP_APRIV_CNTL/CP_MISC_CNTL only mark memory
+	 * transactions as privileged, they do not bypass the CP register
+	 * protection table.  The write has been removed again; the fix is the
+	 * CP_SET_PROTECTED_MODE wrap in a6xx_ringbuffer_addcmds().
+	 */
+
 	ret = a6xx_send_cp_init(adreno_dev, rb);
-	if (ret)
+	if (ret) {
+		dev_err(device->dev, "TIMELMKGSL: cp_init failed ret=%d\n", ret);
 		return ret;
+	}
 
 	ret = adreno_zap_shader_load(adreno_dev, a6xx_core->zap_name);
-	if (ret)
+	if (ret) {
+		dev_err(device->dev,
+			"TIMELMKGSL: zap load failed ret=%d zap_loaded=%d\n",
+			ret, adreno_dev->zap_loaded);
 		return ret;
+	}
+
+	dev_dbg(device->dev, "TIMELMKGSL: zap ok zap_loaded=%d\n",
+		adreno_dev->zap_loaded);
+
+	/* TIMELM bring-up probe (TEMPORARY) */
+	timelm_kgsl_dump(device, "rb_start_after_zap");
 
 	/*
 	 * Take the GPU out of secure mode. Try the zap shader if it is loaded,
@@ -1194,6 +1280,9 @@ int a6xx_rb_start(struct adreno_device *adreno_dev)
 			}
 		}
 	}
+
+	/* TIMELM bring-up probe (TEMPORARY) */
+	timelm_kgsl_dump(device, "rb_start_after_unsecure");
 
 	return a6xx_post_start(adreno_dev);
 }
@@ -1483,6 +1572,16 @@ static void a6xx_cp_hw_err_callback(struct adreno_device *adreno_dev, int bit)
 			"CP | Protected mode error | %s | addr=%x | status=%x\n",
 			status2 & (1 << 20) ? "READ" : "WRITE",
 			status2 & 0x3FFFF, status2);
+
+		/* TIMELM bring-up probe (TEMPORARY) */
+		timelm_kgsl_dump(device, "protect_fault");
+
+		/* TIMELM bring-up fallback (TEMPORARY) */
+		if (!timelm_kgsl_prot_off) {
+			timelm_kgsl_prot_off = true;
+			dev_err(device->dev,
+				"TIMELMKGSL: arming fallback - register protection will be off on the next GPU start\n");
+		}
 	}
 	if (status1 & BIT(A6XX_CP_AHB_ERROR))
 		dev_crit_ratelimited(device->dev,
