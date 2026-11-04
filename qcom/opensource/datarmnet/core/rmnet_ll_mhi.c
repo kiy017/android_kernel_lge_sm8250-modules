@@ -125,7 +125,7 @@ static int rmnet_ll_mhi_probe(struct mhi_device *mhi_dev,
 	ll_ep->buf_len = ll_ep->dev_mru - sizeof(struct rmnet_ll_buffer);
 
 	/* Tell MHI to initialize the UL/DL channels for transfer */
-	rc = mhi_prepare_for_transfer(mhi_dev);
+	rc = mhi_prepare_for_transfer(mhi_dev, 0); /* timelm: 5.15 API */
 	if (rc) {
 		pr_err("%s(): Failed to prepare device for transfer: 0x%x\n",
 		       __func__, rc);

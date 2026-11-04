@@ -21,6 +21,11 @@
 	#define TRACE_INCLUDE_PATH ../../../../../../../src/datarmnet/core
 #endif /* defined(RMNET_LA_PLATFORM) */
 
+/* timelm: the module is built through the kernel techpack/datarmnet symlink */
+#ifdef RMNET_TRACE_INCLUDE_TIMELM
+#undef TRACE_INCLUDE_PATH
+#define TRACE_INCLUDE_PATH ../../techpack/datarmnet/core
+#endif
 #define TRACE_INCLUDE_FILE wda
 
 #if !defined(_TRACE_WDA_H) || defined(TRACE_HEADER_MULTI_READ)

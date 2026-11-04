@@ -525,6 +525,8 @@ int dfc_qmap_client_init(void *port, int index, struct svc_info *psvc,
 
 	if ((rc = rmnet_qmap_init(port)) < 0) {
 		RCU_INIT_POINTER(qmap_dfc_data, NULL);
+		/* timelm: don't leave a dangling client pointer behind */
+		qmi->dfc_clients[index] = NULL;
 		synchronize_rcu();
 
 		kfree(data);
