@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# timelm: LG 4.19 drivers/input/fingerprint/et713_platform.c (Egis ET713
+# optical UDFPS: power/reset/IRQ, /dev/esfp0) built out-of-tree as et713.ko.
+obj-m += et713.o
+et713-y := et713_platform.o
