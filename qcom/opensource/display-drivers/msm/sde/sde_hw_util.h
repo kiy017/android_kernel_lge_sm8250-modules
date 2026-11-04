@@ -202,6 +202,9 @@ void *sde_hw_util_get_dir(void);
 
 void sde_init_scaler_blk(struct sde_scaler_blk *blk, u32 version);
 
+u32 sde_hw_get_scaler3_ver(struct sde_hw_blk_reg_map *c,
+		u32 scaler_offset);
+
 void sde_set_scaler_v2(struct sde_hw_scaler3_cfg *cfg,
 		const struct sde_drm_scaler_v2 *scale_v2);
 

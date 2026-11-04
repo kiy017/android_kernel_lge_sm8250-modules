@@ -3245,6 +3245,16 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 		return;
 	}
 
+	/* TMPDBG timelm */
+	{
+		static int _n;
+		if (_n < 8) {
+			_n++;
+			pr_err("TIMELMENC: virt_enable num_phys=%d\n",
+				sde_enc->num_phys_encs);
+		}
+	}
+
 	if (!sde_enc->crtc)
 		sde_enc->crtc = drm_enc->crtc;
 
@@ -4497,11 +4507,28 @@ void sde_encoder_trigger_kickoff_pending(struct drm_encoder *drm_enc)
 	struct sde_encoder_phys *phys;
 	unsigned int i;
 	struct sde_hw_ctl *ctl;
+	struct msm_drm_private *priv;
+	struct sde_kms *kms;
+	struct drm_device *dev;
 
 	if (!drm_enc) {
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
+
+	/* timelm: do not touch ctl registers if the core failed to power up */
+	dev = drm_enc->dev;
+	if (dev && dev->dev_private) {
+		priv = dev->dev_private;
+		if (priv->kms) {
+			kms = to_sde_kms(priv->kms);
+			if (kms && kms->power_enable_failed) {
+				SDE_ERROR("skip kickoff pending, power enable failed\n");
+				return;
+			}
+		}
+	}
+
 	sde_enc = to_sde_encoder_virt(drm_enc);
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {

@@ -154,6 +154,15 @@ static int sde_backlight_device_update_status(struct backlight_device *bd)
 	if (!bl_lvl && brightness)
 		bl_lvl = 1;
 
+	{
+		static atomic_t timelm_bl_upd = ATOMIC_INIT(0);
+
+		if (atomic_inc_return(&timelm_bl_upd) <= 24)
+			pr_err("TIMELMBL: update_status #%d brightness=%d bl_lvl=%d allow=%d thermal_max=%d\n",
+			       atomic_read(&timelm_bl_upd), brightness, bl_lvl,
+			       c_conn->allow_bl_update, c_conn->thermal_max_brightness);
+	}
+
 	if (!c_conn->allow_bl_update) {
 		c_conn->unset_bl_level = bl_lvl;
 		return 0;
@@ -252,6 +261,11 @@ static int sde_backlight_setup(struct sde_connector *c_conn,
 		return -ENODEV;
 	}
 	c_conn->thermal_max_brightness = bl_config->brightness_max_level;
+
+	pr_err("TIMELMBL: setup name=%s brightness_max=%d init=%d bl_max=%d inverted_dbv=%d\n",
+	       bl_node_name, bl_config->brightness_max_level,
+	       bl_config->brightness_init_level, bl_config->bl_max_level,
+	       bl_config->bl_inverted_dbv);
 
 	/**
 	 * In TVM, thermal cooling device is not enabled. Registering with dummy
@@ -2040,6 +2054,16 @@ sde_connector_detect_ctx(struct drm_connector *connector,
 
 	SDE_DEBUG("connector id: %d, connection status: %d\n", connector->base.id, status);
 
+	/* TMPDBG timelm: is the DSI connector even reported as connected? */
+	{
+		static int _n;
+		if (_n < 6) {
+			_n++;
+			pr_err("TIMELMCONN: detect id=%d status=%d force=%d\n",
+				connector->base.id, status, force);
+		}
+	}
+
 	return (int)status;
 }
 
@@ -2672,6 +2696,15 @@ static int sde_connector_get_modes(struct drm_connector *connector)
 
 	mode_count = c_conn->ops.get_modes(connector, c_conn->display,
 			&avail_res);
+	/* TMPDBG timelm: does the panel expose any mode to userspace? */
+	{
+		static int _n;
+		if (_n < 6) {
+			_n++;
+			pr_err("TIMELMCONN: get_modes id=%d count=%d\n",
+				connector->base.id, mode_count);
+		}
+	}
 	if (!mode_count) {
 		SDE_ERROR_CONN(c_conn, "failed to get modes\n");
 		return 0;

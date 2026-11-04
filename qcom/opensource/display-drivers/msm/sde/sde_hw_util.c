@@ -108,6 +108,13 @@ void sde_init_scaler_blk(struct sde_scaler_blk *blk, u32 version)
 		blk->h_preload = QSEED3_DEFAULT_PRELOAD_H;
 	}
 }
+/* timelm: 4.19 API, for targets whose DT has no qcom,sde-qseed-scalar-version */
+u32 sde_hw_get_scaler3_ver(struct sde_hw_blk_reg_map *c,
+		u32 scaler_offset)
+{
+	return SDE_REG_READ(c, QSEED3_HW_VERSION + scaler_offset);
+}
+
 void sde_set_scaler_v2(struct sde_hw_scaler3_cfg *cfg,
 		const struct sde_drm_scaler_v2 *scale_v2)
 {

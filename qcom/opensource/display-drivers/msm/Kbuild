@@ -52,6 +52,7 @@ LINUX_INC +=	-Iinclude/linux \
 
 LINUX_INC +=	-I$(DISPLAY_ROOT) \
 	-I$(DISPLAY_ROOT)/include \
+	-I$(srctree)/drivers/clk/qcom \
 	-I$(KERNEL_ROOT)/drivers/clk/qcom \
 	-I$(KERNEL_SRC)/drivers/clk/qcom \
 	-I$(DISPLAY_ROOT)/include/linux \
@@ -93,7 +94,7 @@ CDEFINES += -DMULTI_IF_NAME=\"$(CHIP_NAME)\"
 endif
 
 ######### CONFIG_DRM_MSM ########
-obj-m += msm_drm.o
+obj-$(CONFIG_DRM_MSM) += msm_drm.o
 
 msm_drm-$(CONFIG_HDCP_QSEECOM) := ../hdcp/msm_hdcp.o
 

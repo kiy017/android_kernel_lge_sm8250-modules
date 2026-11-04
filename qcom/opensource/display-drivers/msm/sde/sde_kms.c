@@ -1285,12 +1285,23 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 	priv = dev->dev_private;
 
 	SDE_ATRACE_BEGIN("prepare_commit");
+	/* TMPDBG timelm */
+	{
+		static int _n;
+		if (_n < 12) {
+			_n++;
+			pr_err("TIMELMKMS: prepare_commit\n");
+		}
+	}
 	rc = pm_runtime_resume_and_get(sde_kms->dev->dev);
 	if (rc < 0) {
+		/* timelm: never program registers with the core unpowered */
+		sde_kms->power_enable_failed = true;
 		SDE_ERROR("failed to enable power resources %d\n", rc);
 		SDE_EVT32(rc, SDE_EVTLOG_ERROR);
 		goto end;
 	}
+	sde_kms->power_enable_failed = false;
 
 	if (sde_kms->first_kickoff) {
 		sde_power_scale_reg_bus(&priv->phandle, VOTE_INDEX_HIGH, false);
@@ -1343,6 +1354,15 @@ static void sde_kms_commit(struct msm_kms *kms,
 	if (!sde_kms_power_resource_is_enabled(sde_kms->dev)) {
 		SDE_ERROR("power resource is not enabled\n");
 		return;
+	}
+
+	/* TMPDBG timelm */
+	{
+		static int _n;
+		if (_n < 12) {
+			_n++;
+			pr_err("TIMELMKMS: commit\n");
+		}
 	}
 
 	SDE_ATRACE_BEGIN("sde_kms_commit");
@@ -1626,6 +1646,9 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 		SDE_ERROR("power resource is not enabled\n");
 		return;
 	}
+
+	/* timelm: commit is over, re-arm the power-failure guard */
+	sde_kms->power_enable_failed = false;
 
 	SDE_ATRACE_BEGIN("sde_kms_complete_commit");
 

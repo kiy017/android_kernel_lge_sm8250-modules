@@ -4156,6 +4156,18 @@ static void _sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	bool cont_splash_enabled = false;
 	size_t i;
 
+	/* TMPDBG timelm: how far does the atomic commit get? */
+	{
+		static int _n;
+		if (_n < 10) {
+			_n++;
+			pr_err("TIMELMCRTC: atomic_begin %s enable=%d power=%d\n",
+				crtc->name,
+				crtc->state ? crtc->state->enable : -1,
+				sde_kms_power_resource_is_enabled(crtc->dev));
+		}
+	}
+
 	if (!crtc->state->enable) {
 		SDE_DEBUG("crtc%d -> enable %d, skip atomic_begin\n",
 				crtc->base.id, crtc->state->enable);
@@ -4301,6 +4313,19 @@ static void sde_crtc_atomic_flush_common(struct drm_crtc *crtc,
 	if (!crtc || !crtc->dev || !crtc->dev->dev_private) {
 		SDE_ERROR("invalid crtc\n");
 		return;
+	}
+
+	/* TMPDBG timelm */
+	{
+		static int _n;
+		if (_n < 10) {
+			_n++;
+			pr_err("TIMELMCRTC: atomic_flush %s enable=%d active=%d conns=%d\n",
+				crtc->name,
+				crtc->state ? crtc->state->enable : -1,
+				crtc->state ? crtc->state->active : -1,
+				crtc->state ? crtc->state->connector_mask : -1);
+		}
 	}
 
 	if (!crtc->state->enable) {
@@ -5325,6 +5350,15 @@ static void sde_crtc_enable(struct drm_crtc *crtc,
 	priv = crtc->dev->dev_private;
 	cstate = to_sde_crtc_state(crtc->state);
 
+	/* TMPDBG timelm */
+	{
+		static int _n;
+		if (_n < 6) {
+			_n++;
+			pr_err("TIMELMCRTC: atomic_enable %s\n", crtc->name);
+		}
+	}
+
 	if (!sde_kms_power_resource_is_enabled(crtc->dev)) {
 		SDE_ERROR("power resource is not enabled\n");
 		return;
@@ -6076,6 +6110,17 @@ static int _sde_crtc_atomic_check(struct drm_crtc *crtc,
 	sde_crtc = to_sde_crtc(crtc);
 	cstate = to_sde_crtc_state(state);
 
+	/* TMPDBG timelm */
+	{
+		static int _n;
+		if (_n < 12) {
+			_n++;
+			pr_err("TIMELMCRTC: atomic_check %s enable=%d active=%d planes=%d\n",
+				crtc->name, state->enable, state->active,
+				hweight32(state->plane_mask));
+		}
+	}
+
 	if (!state->enable || !state->active) {
 		SDE_DEBUG("crtc%d -> enable %d, active %d, skip atomic_check\n",
 				crtc->base.id, state->enable, state->active);
@@ -6163,6 +6208,14 @@ static int _sde_crtc_atomic_check(struct drm_crtc *crtc,
 		goto end;
 	}
 end:
+	/* TMPDBG timelm */
+	{
+		static int _n;
+		if (_n < 12) {
+			_n++;
+			pr_err("TIMELMCRTC: atomic_check rc=%d\n", rc);
+		}
+	}
 	kfree(pstates);
 	kfree(multirect_plane);
 	return rc;
