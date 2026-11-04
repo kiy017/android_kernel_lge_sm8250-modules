@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# timelm: out-of-tree build of LG's 4.19 kona CVP driver
+# (drivers/media/platform/msm/cvp, CONFIG_MSM_CVP_V4L2) as msm-cvp.ko.
+# android_kernel_lge_sm8250-modules/eva-kernel is the kalama EVA rewrite with another ABI; the
+# kona CamX/libcvp2 userspace needs the 4.19 /dev/cvp uapi.  Same objects as
+# the stock Makefile.
+
+# timelm: in-tree via techpack/cvp (O=out): $(src) is objtree-relative
+CVP := $(srctree)/$(src)
+
+ccflags-y += -DCONFIG_MSM_CVP_V4L2=1
+ccflags-y += -I$(CVP)/include/uapi -I$(CVP)/include -I$(CVP)/msm/cvp
+ccflags-y += -I$(srctree)/drivers/media/platform/msm/synx
+ccflags-y += -I$(srctree)/drivers/devfreq
+
+obj-m += msm-cvp.o
+
+msm-cvp-objs := msm/cvp/msm_v4l2_cvp.o \
+		msm/cvp/timelm_msm_bus_icc.o \
+		msm/cvp/timelm_synx.o \
+		msm/cvp/msm_v4l2_private.o \
+		msm/cvp/msm_cvp_platform.o \
+		msm/cvp/msm_cvp_common.o \
+		msm/cvp/msm_cvp_core.o \
+		msm/cvp/msm_cvp.o \
+		msm/cvp/msm_smem.o \
+		msm/cvp/msm_cvp_debug.o \
+		msm/cvp/msm_cvp_res_parse.o \
+		msm/cvp/cvp_hfi.o \
+		msm/cvp/hfi_response_handler.o \
+		msm/cvp/hfi_packetization.o \
+		msm/cvp/cvp_core_hfi.o \
+		msm/cvp/msm_cvp_clocks.o \
+		msm/cvp/msm_cvp_dsp.o
