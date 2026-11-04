@@ -1264,6 +1264,43 @@ static int _verify_input_list(unsigned int count, void __user *ptr,
 	return 1;
 }
 
+/*
+ * TIMELM: copy one cmdlist/objlist/synclist entry the way the 4.19 KGSL did
+ * (kgsl_copy_from_user(): min(ksize, usize) bytes, a larger user struct's tail
+ * is ignored).  copy_struct_from_user() returns -E2BIG for a non-zero tail and
+ * the callers turned that into -EFAULT: the 2022 (S, 10.0.7) Adreno UMD then
+ * intermittently gets "IOCTL_KGSL_GPU_COMMAND failed: errno 14" and the
+ * submission is dropped (img49/img51: launcher frames lost).
+ * The TIMELMKGSL print is a bring-up probe (TEMPORARY), the copy semantics stay.
+ */
+static int timelm_copy_list_entry(struct kgsl_device *device, const char *list,
+		void *dst, size_t ksize, void __user *src, size_t usize)
+{
+	static int timelm_tail_logged;
+	int ret;
+
+	if (copy_from_user(dst, src, min(ksize, usize)))
+		return -EFAULT;
+
+	if (usize < ksize) {
+		memset(dst + usize, 0, ksize - usize);
+		return 0;
+	}
+
+	if (usize == ksize || timelm_tail_logged >= 8)
+		return 0;
+
+	ret = check_zeroed_user(src + ksize, usize - ksize);
+	if (ret == 0) {
+		timelm_tail_logged++;
+		dev_err(device->dev,
+			"TIMELMKGSL: %s entry ksize=%zu usize=%zu with non-zero tail (accepted, was -EFAULT)\n",
+			list, ksize, usize);
+	}
+
+	return 0;
+}
+
 int kgsl_drawobj_cmd_add_ibdesc_list(struct kgsl_device *device,
 		struct kgsl_drawobj_cmd *cmdobj, void __user *ptr, int count)
 {
@@ -1375,7 +1412,8 @@ int kgsl_drawobj_cmd_add_cmdlist(struct kgsl_device *device,
 		return ret;
 
 	for (i = 0; i < count; i++) {
-		if (copy_struct_from_user(&obj, sizeof(obj), ptr, size))
+		if (timelm_copy_list_entry(device, "cmdlist", &obj, sizeof(obj),
+				ptr, size))
 			return -EFAULT;
 
 		/* Sanity check the flags */
@@ -1414,7 +1452,8 @@ int kgsl_drawobj_cmd_add_memlist(struct kgsl_device *device,
 		return ret;
 
 	for (i = 0; i < count; i++) {
-		if (copy_struct_from_user(&obj, sizeof(obj), ptr, size))
+		if (timelm_copy_list_entry(device, "objlist", &obj, sizeof(obj),
+				ptr, size))
 			return -EFAULT;
 
 		if (!(obj.flags & KGSL_OBJLIST_MEMOBJ)) {
@@ -1492,7 +1531,8 @@ int kgsl_drawobj_sync_add_synclist(struct kgsl_device *device,
 		return -ENOMEM;
 
 	for (i = 0; i < count; i++) {
-		if (copy_struct_from_user(&syncpoint, sizeof(syncpoint), ptr, size))
+		if (timelm_copy_list_entry(device, "synclist", &syncpoint,
+				sizeof(syncpoint), ptr, size))
 			return -EFAULT;
 
 		sync.type = syncpoint.type;

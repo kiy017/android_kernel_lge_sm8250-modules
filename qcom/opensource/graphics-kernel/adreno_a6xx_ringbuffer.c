@@ -66,6 +66,28 @@ static int a6xx_rb_context_switch(struct adreno_device *adreno_dev,
 
 	if (adreno_drawctxt_get_pagetable(rb->drawctxt_active) != pagetable) {
 
+		/* TIMELM bring-up probe (TEMPORARY) */
+		{
+			static bool timelm_dbg_switch;
+
+			if (!timelm_dbg_switch) {
+				u32 apriv = 0, misc = 0;
+				u32 prot = 0, intstatus = 0;
+
+				timelm_dbg_switch = true;
+				kgsl_regread(device, A6XX_CP_APRIV_CNTL, &apriv);
+				kgsl_regread(device, A6XX_CP_MISC_CNTL, &misc);
+				kgsl_regread(device, A6XX_CP_PROTECT_CNTL, &prot);
+				kgsl_regread(device, A6XX_CP_INTERRUPT_STATUS,
+					&intstatus);
+				dev_err(device->dev,
+					"TIMELMKGSL: first ctx switch perfcounter=%d apriv=%d APRIV_CNTL=%08x MISC=%08x PROT=%08x intstatus=%08x\n",
+					adreno_dev->perfcounter,
+					ADRENO_FEATURE(adreno_dev, ADRENO_APRIV),
+					apriv, misc, prot, intstatus);
+			}
+		}
+
 		/* Clear performance counters during context switches */
 		if (!adreno_dev->perfcounter) {
 			cmds[count++] = cp_type4_packet(A6XX_RBBM_PERFCTR_SRAM_INIT_CMD, 1);
@@ -210,7 +232,12 @@ int a6xx_ringbuffer_init(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-#define A6XX_SUBMIT_MAX 79
+/*
+ * TIMELM: 83 instead of 79 so that an internal submission that needs the
+ * CP_SET_PROTECTED_MODE 0/1 pair (see a6xx_ringbuffer_addcmds()) still fits in
+ * the reserved space.  Revert together with the APRIV fix below.
+ */
+#define A6XX_SUBMIT_MAX 83
 
 int a6xx_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb, struct adreno_context *drawctxt,
@@ -235,11 +262,36 @@ int a6xx_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 		drawctxt->internal_timestamp = rb->timestamp;
 
 	/*
-	 * if APRIV is enabled we assume all submissions are run with protected
-	 * mode off
+	 * TIMELM bring-up fix (see workdone.md, "img40"): if APRIV is enabled
+	 * the driver assumes all submissions already run with protected mode
+	 * off, so it drops F_NOTPROTECTED.  That is only true when the CP was
+	 * taken out of protected mode by somebody else - on stock that is the
+	 * bootloader's continuous splash stream.  Continuous splash is disabled
+	 * for this port (it skipped the panel init), so the CP comes out of
+	 * reset in protected mode and the internal perfcounter clear write to
+	 * A6XX_RBBM_PERFCTR_SRAM_INIT_CMD (0x50e, a deny entry of
+	 * a620_protected_regs[]) is rejected:
+	 *   CP | Protected mode error | WRITE | addr=50e | status=60050e
+	 *
+	 * Keep the wrapping for internal (kernel) submissions, exactly like a
+	 * non-APRIV target, so they run with protection off.  User submissions
+	 * still get the upstream APRIV treatment.
 	 */
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
+	if (drawctxt && ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
 		flags &= ~F_NOTPROTECTED;
+
+	/* TIMELM bring-up probe (TEMPORARY) */
+	if (!drawctxt && IS_NOTPROTECTED(flags) &&
+			ADRENO_FEATURE(adreno_dev, ADRENO_APRIV)) {
+		static bool timelm_dbg_pmode;
+
+		if (!timelm_dbg_pmode) {
+			timelm_dbg_pmode = true;
+			dev_err(device->dev,
+				"TIMELMKGSL: internal stream dwords=%u now runs inside CP_SET_PROTECTED_MODE 0/1\n",
+				dwords);
+		}
+	}
 
 	cmds = adreno_ringbuffer_allocspace(rb, size);
 	if (IS_ERR(cmds))
