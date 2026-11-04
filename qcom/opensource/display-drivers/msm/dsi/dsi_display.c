@@ -8360,6 +8360,8 @@ int dsi_display_prepare(struct dsi_display *display)
 						display->name, rc);
 				goto error_ctrl_link_off;
 			}
+			pr_err("DSIDSI: [%s] panel prepare done\n",
+				display->name);
 		}
 	}
 	goto error;
@@ -8731,6 +8733,9 @@ int dsi_display_enable(struct dsi_display *display)
 			       display->name, rc);
 			goto error;
 		}
+		pr_err("DSIDSI: [%s] panel enable done, mode=%u fps=%u pixclk=%ukHz\n",
+			display->name, mode->mode_idx,
+			mode->timing.refresh_rate, mode->pixel_clk_khz);
 	}
 	dsi_display_panel_id_notification(display);
 	/* Block sending pps command if modeset is due to fps difference */

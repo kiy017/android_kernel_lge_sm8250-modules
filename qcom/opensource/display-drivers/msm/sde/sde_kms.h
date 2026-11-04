@@ -282,6 +282,14 @@ struct sde_kms {
 	struct drm_atomic_state *suspend_state;
 	bool suspend_block;
 
+	/*
+	 * Set when sde_kms_prepare_commit() could not power the display core
+	 * up.  The atomic commit helpers keep going in that case (prepare_commit
+	 * has no way to abort the commit), and the following crtc/encoder calls
+	 * would program MDP registers with the core unpowered -> SError panic.
+	 */
+	bool power_enable_failed;
+
 	struct sde_rm rm;
 	bool rm_init;
 	struct sde_splash_data splash_data;

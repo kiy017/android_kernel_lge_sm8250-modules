@@ -3840,6 +3840,10 @@ static void _sde_plane_setup_capabilities_blob(struct sde_plane *psde,
 
 	if (psde->pipe_hw && catalog->qseed_hw_rev)
 		sde_kms_info_add_keyint(info, "scaler_step_ver", catalog->qseed_hw_rev);
+	else if (psde->pipe_hw && psde->pipe_sblk->scaler_blk.version)
+		/* timelm: HW-read version (4.19 behaviour), see sde_hw_sspp_init */
+		sde_kms_info_add_keyint(info, "scaler_step_ver",
+			psde->pipe_sblk->scaler_blk.version);
 
 	sde_kms_info_add_keyint(info, "max_linewidth",
 			psde->pipe_sblk->maxlinewidth);

@@ -195,6 +195,17 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 
 	display = c_bridge->display;
 
+	/* TMPDBG timelm: does the DSI bridge pre_enable ever run? */
+	{
+		static int _n;
+		if (_n < 6) {
+			_n++;
+			pr_err("TIMELMDSI: pre_enable bridge%d display=%s active_changed=%d\n",
+				c_bridge->id, display->name,
+				bridge->encoder->crtc->state->active_changed);
+		}
+	}
+
 	if (bridge->encoder->crtc->state->active_changed)
 		atomic_set(&c_bridge->display->panel->esd_recovery_pending, 0);
 
@@ -206,10 +217,14 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 		       c_bridge->id, rc);
 		return;
 	}
+	pr_err("TIMELMDSI: set_mode ok, flags=0x%x seamless=%d\n",
+		c_bridge->dsi_mode.dsi_mode_flags,
+		!!(c_bridge->dsi_mode.dsi_mode_flags & DSI_MODE_FLAG_SEAMLESS));
 
 	if (c_bridge->dsi_mode.dsi_mode_flags &
 		(DSI_MODE_FLAG_SEAMLESS | DSI_MODE_FLAG_VRR |
 		 DSI_MODE_FLAG_DYN_CLK)) {
+		pr_err("TIMELMDSI: pre_enable early-return (seamless/vrr/dyn_clk)\n");
 		DSI_DEBUG("[%d] seamless pre-enable\n", c_bridge->id);
 		return;
 	}
@@ -217,6 +232,7 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 	SDE_ATRACE_BEGIN("dsi_display_prepare");
 	rc = dsi_display_prepare(c_bridge->display);
 	if (rc) {
+		pr_err("TIMELMDSI: dsi_display_prepare FAILED rc=%d\n", rc);
 		DSI_ERR("[%d] DSI display prepare failed, rc=%d\n",
 		       c_bridge->id, rc);
 		SDE_ATRACE_END("dsi_display_prepare");
@@ -227,9 +243,12 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 	SDE_ATRACE_BEGIN("dsi_display_enable");
 	rc = dsi_display_enable(c_bridge->display);
 	if (rc) {
+		pr_err("TIMELMDSI: dsi_display_enable FAILED rc=%d\n", rc);
 		DSI_ERR("[%d] DSI display enable failed, rc=%d\n",
 				c_bridge->id, rc);
 		(void)dsi_display_unprepare(c_bridge->display);
+	} else {
+		pr_err("TIMELMDSI: dsi_display_enable ok\n");
 	}
 	SDE_ATRACE_END("dsi_display_enable");
 

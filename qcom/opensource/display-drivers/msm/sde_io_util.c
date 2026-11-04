@@ -441,10 +441,31 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 			if (in_vreg[i].post_on_sleep && need_sleep)
 				usleep_range(in_vreg[i].post_on_sleep * 1000,
 					(in_vreg[i].post_on_sleep * 1000) + 10);
-			if (rc < 0) {
-				DEV_ERR("%pS->%s: %s enable failed\n",
+			/*
+			 * timelm: -EBUSY from a gdsc-regulator means the rail is
+			 * under hardware/RSC trigger control and gdsc_enable()
+			 * refuses to touch it.  Treat it as "owned by HW" and
+			 * keep going instead of failing the whole display
+			 * power-up, which used to be followed by register writes
+			 * to an unpowered MDP (asynchronous SError panic).
+			 */
+			if (rc == -EBUSY) {
+				DEV_ERR("%pS->%s: %s enable got -EBUSY (is_enabled=%d mode=%u n_voltages=%d), treating as HW/RSC controlled\n",
 					__builtin_return_address(0), __func__,
-					in_vreg[i].vreg_name);
+					in_vreg[i].vreg_name,
+					regulator_is_enabled(in_vreg[i].vreg),
+					regulator_get_mode(in_vreg[i].vreg),
+					regulator_count_voltages(in_vreg[i].vreg));
+				rc = 0;
+				continue;
+			}
+			if (rc < 0) {
+				DEV_ERR("%pS->%s: %s enable failed rc=%d (is_enabled=%d mode=%u n_voltages=%d)\n",
+					__builtin_return_address(0), __func__,
+					in_vreg[i].vreg_name, rc,
+					regulator_is_enabled(in_vreg[i].vreg),
+					regulator_get_mode(in_vreg[i].vreg),
+					regulator_count_voltages(in_vreg[i].vreg));
 				goto disable_vreg;
 			}
 		}

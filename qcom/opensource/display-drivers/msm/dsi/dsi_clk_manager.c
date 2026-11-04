@@ -384,6 +384,17 @@ static int dsi_link_hs_clk_set_rate(struct dsi_link_hs_clk_info *link_hs_clks,
 			goto error;
 		}
 	}
+
+	pr_debug("DSIDSI: ctrl%d clk rates: byte req %llu got %lu, pixel req %llu got %lu%s%llu\n",
+		index,
+		(unsigned long long)l_clks->freq.byte_clk_rate,
+		clk_get_rate(link_hs_clks->byte_clk),
+		(unsigned long long)l_clks->freq.pix_clk_rate,
+		clk_get_rate(link_hs_clks->pixel_clk),
+		link_hs_clks->byte_intf_clk ? ", byte_intf req " : "",
+		link_hs_clks->byte_intf_clk ?
+			(unsigned long long)l_clks->freq.byte_intf_clk_rate :
+			0ULL);
 error:
 	return rc;
 }
@@ -512,6 +523,8 @@ static int dsi_link_hs_clk_start(struct dsi_link_hs_clk_info *link_hs_clks,
 		}
 	}
 
+	pr_debug("DSIDSI: link hs clocks ON ctrl%d (op 0x%x)\n", index,
+		op_type);
 	DSI_DEBUG("HS Link clocks are enabled\n");
 	return rc;
 error_unprepare:

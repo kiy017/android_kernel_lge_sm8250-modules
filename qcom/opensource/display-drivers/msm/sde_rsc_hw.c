@@ -532,6 +532,7 @@ static int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
 
 	if (rsc->sw_fs_enabled) {
 		rc = regulator_set_mode(rsc->fs, REGULATOR_MODE_FAST);
+		pr_err("TIMELMRSC: mode2 entry set_mode(FAST) rc=%d\n", rc);
 		if (rc) {
 			pr_err("vdd reg fast mode set failed rc:%d\n", rc);
 			return rc;
