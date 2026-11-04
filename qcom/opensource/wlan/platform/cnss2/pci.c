@@ -3900,6 +3900,32 @@ reg_driver:
 			       pci_priv->driver_ops);
 }
 
+static void cnss_timelm_reg_work(struct work_struct *work)
+{
+	struct cnss_plat_data *plat_priv =
+		container_of(work, struct cnss_plat_data, timelm_reg_work);
+	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
+	int ret;
+
+	if (test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state))
+		return;
+
+	cnss_pr_info("TIMELMWLAN: fs_ready, registering deferred driver\n");
+	reinit_completion(&plat_priv->power_up_complete);
+	ret = cnss_driver_event_post(plat_priv,
+				     CNSS_DRIVER_EVENT_REGISTER_DRIVER,
+				     CNSS_EVENT_SYNC_UNKILLABLE,
+				     pci_priv->driver_ops);
+	cnss_pr_info("TIMELMWLAN: deferred register done, ret %d\n", ret);
+}
+
+void cnss_pci_timelm_fs_ready(struct cnss_plat_data *plat_priv)
+{
+	if (test_and_clear_bit(CNSS_TIMELM_REG_PENDING,
+			       &plat_priv->driver_state))
+		schedule_work(&plat_priv->timelm_reg_work);
+}
+
 int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 {
 	int ret = 0;
@@ -3982,6 +4008,25 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 	    driver_ops->get_driver_mode) {
 		plat_priv->driver_mode = driver_ops->get_driver_mode();
 		cnss_pci_update_fw_name(pci_priv);
+	}
+
+	/*
+	 * timelm: qcacld is loaded from the boot ramdisk in first stage init,
+	 * before /vendor/firmware and /vendor/firmware_mnt are mounted, so
+	 * powering up now would fail every firmware/BDF request.  Hold the
+	 * registration until vendor init writes fs_ready (post-fs-data,
+	 * init.target.rc) and register from a work item then.
+	 */
+	if (plat_priv->timelm_wait_fs_ready &&
+	    !test_bit(CNSS_FS_READY, &plat_priv->driver_state)) {
+		pci_priv->driver_ops = driver_ops;
+		INIT_WORK(&plat_priv->timelm_reg_work, cnss_timelm_reg_work);
+		set_bit(CNSS_TIMELM_REG_PENDING, &plat_priv->driver_state);
+		cnss_pr_info("TIMELMWLAN: register driver deferred until fs_ready\n");
+		/* fs_ready may have landed between the test and the set */
+		if (test_bit(CNSS_FS_READY, &plat_priv->driver_state))
+			cnss_pci_timelm_fs_ready(plat_priv);
+		return 0;
 	}
 
 	if (!plat_priv->cbc_enabled ||
