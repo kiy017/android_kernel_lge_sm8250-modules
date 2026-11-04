@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Qualcomm MDSS PLL drivers (7nm DSI + DP), ported from msm-4.19.
+# The msm-5.15 Qualcomm kernel retains the legacy clk API
+# (devm_clk_register / of_clk_add_provider) so this is near drop-in.
+
+ccflags-y := -I$(srctree)/drivers/clk/qcom/
+
+obj-$(CONFIG_QCOM_MDSS_PLL)    += pll_drv.o
+obj-$(CONFIG_QCOM_MDSS_PLL)    += pll_util.o
+obj-$(CONFIG_QCOM_MDSS_PLL)    += dsi_pll_7nm.o
+obj-$(CONFIG_QCOM_MDSS_DP_PLL) += dp_pll_7nm.o
+obj-$(CONFIG_QCOM_MDSS_DP_PLL) += dp_pll_7nm_util.o
