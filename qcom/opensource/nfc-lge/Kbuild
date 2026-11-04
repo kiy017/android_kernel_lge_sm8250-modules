@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# timelm: LG 4.19 drivers/nfc/cxd22xx (Sony CXD2252 NFC on qupv3_se1_i2c @0x28,
+# /dev/cxd22xx-i2c for android.hardware.nfc@1.2-service-cxd22xx) built
+# out-of-tree as cxd22xx.ko.  Stock timelm config: RST=y, SERVICE_MODE=y
+# (vendor/timelm.config), VEN and PM off.
+ccflags-y += -DCONFIG_NFC_CXD22XX_RST=1 -DCONFIG_NFC_CXD22XX_SERVICE_MODE=1
+obj-m += cxd22xx.o
+cxd22xx-y := cxd22xx-i2c.o
