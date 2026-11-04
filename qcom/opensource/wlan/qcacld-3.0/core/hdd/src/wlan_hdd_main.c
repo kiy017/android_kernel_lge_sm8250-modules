@@ -18732,8 +18732,14 @@ static int hdd_module_init(void)
 #else
 static int hdd_module_init(void)
 {
+	/*
+	 * TIMELMWLAN: this module is loaded from the boot ramdisk's
+	 * modules.load, and first stage init LOG(FATAL)s on any module that
+	 * fails to load (-> reboot to recovery).  Keep the module loaded and
+	 * only log while the port is in the ramdisk phase.
+	 */
 	if (hdd_driver_load())
-		return -EINVAL;
+		pr_err("TIMELMWLAN: hdd_driver_load failed, wlan stays unloaded\n");
 
 	return 0;
 }

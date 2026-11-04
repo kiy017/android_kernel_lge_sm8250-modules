@@ -188,6 +188,9 @@ static int cnss_stats_show_state(struct seq_file *s,
 		case CNSS_POWER_OFF:
 			seq_puts(s, "POWER OFF");
 			continue;
+		case CNSS_TIMELM_REG_PENDING:
+			seq_puts(s, "TIMELM_REG_PENDING");
+			continue;
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);

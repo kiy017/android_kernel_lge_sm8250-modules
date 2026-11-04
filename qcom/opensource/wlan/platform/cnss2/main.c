@@ -4570,6 +4570,9 @@ static ssize_t fs_ready_store(struct device *dev,
 				       0, NULL);
 	}
 
+	if (plat_priv->timelm_wait_fs_ready)
+		cnss_pci_timelm_fs_ready(plat_priv);
+
 	return count;
 }
 
@@ -5102,6 +5105,9 @@ static void cnss_init_control_params(struct cnss_plat_data *plat_priv)
 	plat_priv->cbc_enabled = !IS_ENABLED(CONFIG_CNSS_EMULATION) &&
 		of_property_read_bool(plat_priv->plat_dev->dev.of_node,
 				      "qcom,wlan-cbc-enabled");
+	plat_priv->timelm_wait_fs_ready =
+		of_property_read_bool(plat_priv->plat_dev->dev.of_node,
+				      "qcom,timelm-wait-fs-ready");
 
 	plat_priv->ctrl_params.mhi_timeout = CNSS_MHI_TIMEOUT_DEFAULT;
 	plat_priv->ctrl_params.mhi_m2_timeout = CNSS_MHI_M2_TIMEOUT_DEFAULT;

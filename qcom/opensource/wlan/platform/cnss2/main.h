@@ -373,6 +373,7 @@ enum cnss_driver_state {
 	CNSS_DRIVER_REGISTERED,
 	CNSS_DMS_DEL_SERVER,
 	CNSS_POWER_OFF,
+	CNSS_TIMELM_REG_PENDING,	/* timelm: register held until fs_ready */
 };
 
 struct cnss_recovery_data {
@@ -618,6 +619,9 @@ struct cnss_plat_data {
 	void *get_driver_async_data_ctx;
 	int (*get_driver_async_data_cb)(void *ctx, uint16_t type, void *event, int event_len);
 	bool cbc_enabled;
+	/* timelm: DT qcom,timelm-wait-fs-ready, see cnss_wlan_register_driver() */
+	bool timelm_wait_fs_ready;
+	struct work_struct timelm_reg_work;
 	u8 use_pm_domain;
 	u8 use_nv_mac;
 	u8 set_wlaon_pwr_ctrl;
@@ -784,4 +788,7 @@ int cnss_fw_managed_power_gpio(struct cnss_plat_data *plat_priv,
 			       bool enabled);
 int cnss_fw_managed_domain_attach(struct cnss_plat_data *plat_priv);
 void cnss_fw_managed_domain_detach(struct cnss_plat_data *plat_priv);
+/* timelm: pci.c, kicks a register held until fs_ready */
+void cnss_pci_timelm_fs_ready(struct cnss_plat_data *plat_priv);
+
 #endif /* _CNSS_MAIN_H */
