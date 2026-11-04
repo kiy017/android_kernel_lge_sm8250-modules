@@ -1,0 +1,165 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# timelm: out-of-tree build of LG's 4.19 kona techpack/camera as one
+# camera.ko (the vendor CamX camera.kona.so needs this exact uapi: the 5.15
+# camera-kernel changed struct cam_control and therefore VIDIOC_CAM_CONTROL).
+# The per-directory Makefiles are the stock built-in ones and are not used;
+# this file lists the same objects in the stock link order.  Stock built it
+# into the kernel (obj-y), so the initcalls are run by camera_main.c.
+
+# timelm: in-tree via techpack/camera (O=out): $(src) is objtree-relative
+CAM := $(srctree)/$(src)
+
+# konacamera.conf / konacameraconf.h + the LG machine symbols.
+ccflags-y += -DCONFIG_SPECTRA_CAMERA_KONA=1 -DCONFIG_SPECTRA_CAMERA=1
+ccflags-y += -DCONFIG_MACH_LGE=1 -DCONFIG_MACH_KONA_TIMELM=1
+# timelm: stock kona had CONFIG_MSM_GLOBAL_SYNX=y; cam_sync registers its
+# synx bind ops (CamX CVP node binds synx objects to CSL fences)
+ccflags-y += -DTIMELM_CAM_GLOBAL_SYNX=1
+ccflags-y += -I$(srctree)/drivers/media/platform/msm/synx
+CONFIG_MACH_LGE := y
+
+cam_include_dirs := $(shell find $(CAM)/drivers -name '*.h' -printf '%h\n' | sort -u)
+ccflags-y += -I$(CAM)/include/uapi -I$(CAM)/include
+ccflags-y += $(addprefix -I,$(cam_include_dirs))
+
+obj-m += camera.o
+
+camera-y := drivers/camera_main.o
+# timelm: LG lrmc (BOB boost for flash), was CONFIG_LGE_PM in the kernel
+camera-y += drivers/lge_lrmc/lge_regulator_mode_change.o
+camera-y += drivers/cam_req_mgr/cam_req_mgr_core.o
+camera-y += drivers/cam_req_mgr/cam_req_mgr_dev.o
+camera-y += drivers/cam_req_mgr/cam_req_mgr_util.o
+camera-y += drivers/cam_req_mgr/cam_req_mgr_workq.o
+camera-y += drivers/cam_req_mgr/cam_mem_mgr.o
+camera-y += drivers/cam_req_mgr/cam_req_mgr_timer.o
+camera-y += drivers/cam_req_mgr/cam_req_mgr_debug.o
+camera-y += drivers/cam_utils/cam_soc_util.o
+camera-y += drivers/cam_utils/cam_io_util.o
+camera-y += drivers/cam_utils/cam_packet_util.o
+camera-y += drivers/cam_utils/cam_debug_util.o
+camera-y += drivers/cam_utils/cam_trace.o
+camera-y += drivers/cam_utils/cam_common_util.o
+camera-y += drivers/cam_utils/cam_cx_ipeak.o
+camera-y += drivers/cam_core/cam_context.o
+camera-y += drivers/cam_core/cam_context_utils.o
+camera-y += drivers/cam_core/cam_node.o
+camera-y += drivers/cam_core/cam_subdev.o
+camera-y += drivers/cam_sync/cam_sync.o
+camera-y += drivers/cam_sync/cam_sync_util.o
+camera-y += drivers/cam_smmu/cam_smmu_api.o
+camera-y += drivers/cam_cpas/cpas_top/cam_cpastop_hw.o
+camera-y += drivers/cam_cpas/camss_top/cam_camsstop_hw.o
+camera-y += drivers/cam_cpas/cam_cpas_soc.o
+camera-y += drivers/cam_cpas/cam_cpas_intf.o
+# timelm: 4.19 msm-bus API on 5.15 interconnect (stock CPAS DT unchanged)
+camera-y += drivers/cam_cpas/cam_msm_bus_icc.o
+camera-y += drivers/cam_cpas/cam_cpas_hw.o
+camera-y += drivers/cam_cdm/cam_cdm_soc.o
+camera-y += drivers/cam_cdm/cam_cdm_util.o
+camera-y += drivers/cam_cdm/cam_cdm_intf.o
+camera-y += drivers/cam_cdm/cam_cdm_core_common.o
+camera-y += drivers/cam_cdm/cam_cdm_virtual_core.o
+camera-y += drivers/cam_cdm/cam_cdm_hw_core.o
+camera-y += drivers/cam_isp/isp_hw_mgr/hw_utils/cam_tasklet_util.o
+camera-y += drivers/cam_isp/isp_hw_mgr/hw_utils/cam_isp_packet_parser.o
+camera-y += drivers/cam_isp/isp_hw_mgr/hw_utils/irq_controller/cam_irq_controller.o
+camera-y += drivers/cam_isp/isp_hw_mgr/isp_hw/ife_csid_hw/cam_ife_csid_dev.o
+camera-y += drivers/cam_isp/isp_hw_mgr/isp_hw/ife_csid_hw/cam_ife_csid_soc.o
+camera-y += drivers/cam_isp/isp_hw_mgr/isp_hw/ife_csid_hw/cam_ife_csid_core.o
+camera-y += drivers/cam_isp/isp_hw_mgr/isp_hw/ife_csid_hw/cam_ife_csid17x.o
+camera-y += drivers/cam_isp/isp_hw_mgr/isp_hw/ife_csid_hw/cam_ife_csid_lite17x.o
+camera-y += drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/cam_vfe_soc.o
+camera-y += drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/cam_vfe_dev.o
+camera-y += drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/cam_vfe_core.o
+camera-y += drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/vfe_bus/cam_vfe_bus.o
+camera-y += drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/vfe_bus/cam_vfe_bus_ver2.o
+camera-y += drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/vfe_bus/cam_vfe_bus_rd_ver1.o
+camera-y += drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/vfe_bus/cam_vfe_bus_ver3.o
+camera-y += drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/vfe_top/cam_vfe_camif_lite_ver2.o
+camera-y += drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/vfe_top/cam_vfe_top.o
+camera-y += drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/vfe_top/cam_vfe_top_common.o
+camera-y += drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/vfe_top/cam_vfe_top_ver3.o
+camera-y += drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/vfe_top/cam_vfe_top_ver2.o
+camera-y += drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/vfe_top/cam_vfe_camif_ver2.o
+camera-y += drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/vfe_top/cam_vfe_camif_ver3.o
+camera-y += drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/vfe_top/cam_vfe_rdi.o
+camera-y += drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/vfe_top/cam_vfe_fe_ver1.o
+camera-y += drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/vfe_top/cam_vfe_camif_lite_ver3.o
+camera-y += drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/vfe17x/cam_vfe.o
+camera-y += drivers/cam_isp/isp_hw_mgr/cam_isp_hw_mgr.o
+camera-y += drivers/cam_isp/isp_hw_mgr/cam_ife_hw_mgr.o
+camera-y += drivers/cam_isp/cam_isp_dev.o
+camera-y += drivers/cam_isp/cam_isp_context.o
+camera-y += drivers/cam_sensor_module/cam_res_mgr/cam_res_mgr.o
+camera-y += drivers/cam_sensor_module/cam_sensor_utils/cam_sensor_util.o
+camera-y += drivers/cam_sensor_module/cam_cci/cam_cci_dev.o
+camera-y += drivers/cam_sensor_module/cam_cci/cam_cci_core.o
+camera-y += drivers/cam_sensor_module/cam_cci/cam_cci_soc.o
+camera-y += drivers/cam_sensor_module/cam_sensor_io/cam_sensor_io.o
+camera-y += drivers/cam_sensor_module/cam_sensor_io/cam_sensor_cci_i2c.o
+camera-y += drivers/cam_sensor_module/cam_sensor_io/cam_sensor_qup_i2c.o
+camera-y += drivers/cam_sensor_module/cam_sensor_io/cam_sensor_spi.o
+camera-y += drivers/cam_sensor_module/cam_csiphy/cam_csiphy_soc.o
+camera-y += drivers/cam_sensor_module/cam_csiphy/cam_csiphy_dev.o
+camera-y += drivers/cam_sensor_module/cam_csiphy/cam_csiphy_core.o
+camera-y += drivers/cam_sensor_module/cam_actuator/cam_actuator_dev.o
+camera-y += drivers/cam_sensor_module/cam_actuator/cam_actuator_core.o
+camera-y += drivers/cam_sensor_module/cam_actuator/cam_actuator_soc.o
+camera-y += drivers/cam_sensor_module/cam_actuator/lgit_onsemi/lgit_onsemi_actuator_utils.o
+camera-y += drivers/cam_sensor_module/cam_sensor/cam_sensor_dev.o
+camera-y += drivers/cam_sensor_module/cam_sensor/cam_sensor_core.o
+camera-y += drivers/cam_sensor_module/cam_sensor/cam_sensor_soc.o
+camera-y += drivers/cam_sensor_module/cam_eeprom/cam_eeprom_dev.o
+camera-y += drivers/cam_sensor_module/cam_eeprom/cam_eeprom_core.o
+camera-y += drivers/cam_sensor_module/cam_eeprom/cam_eeprom_soc.o
+camera-y += drivers/cam_sensor_module/cam_ois/cam_ois_dev.o
+camera-y += drivers/cam_sensor_module/cam_ois/cam_ois_core.o
+camera-y += drivers/cam_sensor_module/cam_ois/cam_ois_soc.o
+camera-y += drivers/cam_sensor_module/cam_ois/lgit_onsemi/lgit_s5kgw1_onsemi_ois.o
+camera-y += drivers/cam_sensor_module/cam_flash/cam_flash_dev.o
+camera-y += drivers/cam_sensor_module/cam_flash/cam_flash_core.o
+camera-y += drivers/cam_sensor_module/cam_flash/cam_flash_soc.o
+camera-y += drivers/cam_icp/icp_hw/icp_hw_mgr/cam_icp_hw_mgr.o
+camera-y += drivers/cam_icp/icp_hw/a5_hw/a5_dev.o
+camera-y += drivers/cam_icp/icp_hw/a5_hw/a5_core.o
+camera-y += drivers/cam_icp/icp_hw/a5_hw/a5_soc.o
+camera-y += drivers/cam_icp/icp_hw/ipe_hw/ipe_dev.o
+camera-y += drivers/cam_icp/icp_hw/ipe_hw/ipe_core.o
+camera-y += drivers/cam_icp/icp_hw/ipe_hw/ipe_soc.o
+camera-y += drivers/cam_icp/icp_hw/bps_hw/bps_dev.o
+camera-y += drivers/cam_icp/icp_hw/bps_hw/bps_core.o
+camera-y += drivers/cam_icp/icp_hw/bps_hw/bps_soc.o
+camera-y += drivers/cam_icp/cam_icp_subdev.o
+camera-y += drivers/cam_icp/cam_icp_context.o
+camera-y += drivers/cam_icp/hfi.o
+camera-y += drivers/cam_jpeg/jpeg_hw/jpeg_enc_hw/jpeg_enc_dev.o
+camera-y += drivers/cam_jpeg/jpeg_hw/jpeg_enc_hw/jpeg_enc_core.o
+camera-y += drivers/cam_jpeg/jpeg_hw/jpeg_enc_hw/jpeg_enc_soc.o
+camera-y += drivers/cam_jpeg/jpeg_hw/jpeg_dma_hw/jpeg_dma_dev.o
+camera-y += drivers/cam_jpeg/jpeg_hw/jpeg_dma_hw/jpeg_dma_core.o
+camera-y += drivers/cam_jpeg/jpeg_hw/jpeg_dma_hw/jpeg_dma_soc.o
+camera-y += drivers/cam_jpeg/jpeg_hw/cam_jpeg_hw_mgr.o
+camera-y += drivers/cam_jpeg/cam_jpeg_dev.o
+camera-y += drivers/cam_jpeg/cam_jpeg_context.o
+camera-y += drivers/cam_fd/fd_hw_mgr/fd_hw/cam_fd_hw_dev.o
+camera-y += drivers/cam_fd/fd_hw_mgr/fd_hw/cam_fd_hw_core.o
+camera-y += drivers/cam_fd/fd_hw_mgr/fd_hw/cam_fd_hw_soc.o
+camera-y += drivers/cam_fd/fd_hw_mgr/cam_fd_hw_mgr.o
+camera-y += drivers/cam_fd/cam_fd_dev.o
+camera-y += drivers/cam_fd/cam_fd_context.o
+camera-y += drivers/cam_lrme/lrme_hw_mgr/lrme_hw/cam_lrme_hw_dev.o
+camera-y += drivers/cam_lrme/lrme_hw_mgr/lrme_hw/cam_lrme_hw_core.o
+camera-y += drivers/cam_lrme/lrme_hw_mgr/lrme_hw/cam_lrme_hw_soc.o
+camera-y += drivers/cam_lrme/lrme_hw_mgr/cam_lrme_hw_mgr.o
+camera-y += drivers/cam_lrme/cam_lrme_dev.o
+camera-y += drivers/cam_lrme/cam_lrme_context.o
+camera-y += drivers/cam_cust/cam_custom_hw_mgr/cam_custom_hw1/cam_custom_sub_mod_soc.o
+camera-y += drivers/cam_cust/cam_custom_hw_mgr/cam_custom_hw1/cam_custom_sub_mod_dev.o
+camera-y += drivers/cam_cust/cam_custom_hw_mgr/cam_custom_hw1/cam_custom_sub_mod_core.o
+camera-y += drivers/cam_cust/cam_custom_hw_mgr/cam_custom_csid/cam_custom_csid_dev.o
+camera-y += drivers/cam_cust/cam_custom_hw_mgr/cam_custom_hw_mgr.o
+camera-y += drivers/cam_cust/cam_custom_dev.o
+camera-y += drivers/cam_cust/cam_custom_context.o
+camera-y += drivers/camera_class/camera_class.o
