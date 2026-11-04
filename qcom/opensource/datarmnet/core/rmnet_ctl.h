@@ -30,7 +30,8 @@ struct rmnet_ctl_client_if {
 		       const void *data, unsigned int len);
 };
 
-#ifdef RMNET_LA_PLATFORM
+/* timelm: kona/SDX55 builds rmnet_ctl over MHI (RMNET_CTL_MHI), not IPA */
+#if defined(RMNET_LA_PLATFORM) || defined(RMNET_CTL_MHI)
 struct rmnet_ctl_client_if *rmnet_ctl_if(void);
 int rmnet_ctl_get_stats(u64 *s, int n);
 #else

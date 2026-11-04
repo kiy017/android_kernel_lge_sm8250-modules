@@ -33,6 +33,11 @@
 	#endif /* CONFIG_ARCH_KHAJE */
 #endif /* endif LINUX_VERSION_CODE < KERNEL_VERSION(5,5,0) */
 
+/* timelm: the module is built through the kernel techpack/datarmnet symlink */
+#ifdef RMNET_TRACE_INCLUDE_TIMELM
+#undef TRACE_INCLUDE_PATH
+#define TRACE_INCLUDE_PATH ../../techpack/datarmnet/core
+#endif
 #define TRACE_INCLUDE_FILE rmnet_trace
 
 #if !defined(_TRACE_RMNET_H) || defined(TRACE_HEADER_MULTI_READ)

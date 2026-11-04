@@ -32,8 +32,9 @@ static int rmnet_ctl_send_mhi(struct rmnet_ctl_dev *dev, struct sk_buff *skb)
 
 	spin_lock_bh(&ctl_dev->tx_lock);
 
-	rc = mhi_queue_transfer(ctl_dev->mhi_dev,
-				DMA_TO_DEVICE, skb, skb->len, MHI_EOT);
+	/* timelm: 5.15 MHI API */
+	rc = mhi_queue_skb(ctl_dev->mhi_dev,
+			   DMA_TO_DEVICE, skb, skb->len, MHI_EOT);
 	if (rc)
 		dev->stats.tx_err++;
 	else
@@ -51,7 +52,7 @@ static void rmnet_ctl_alloc_buffers(struct rmnet_ctl_mhi_dev *ctl_dev,
 	void *buf;
 	int no_tre, i, rc;
 
-	no_tre = mhi_get_no_free_descriptors(mhi_dev, DMA_FROM_DEVICE);
+	no_tre = mhi_get_free_desc_count(mhi_dev, DMA_FROM_DEVICE); /* timelm: 5.15 API */
 
 	if (!no_tre && free_buf) {
 		kfree(free_buf);
@@ -70,8 +71,8 @@ static void rmnet_ctl_alloc_buffers(struct rmnet_ctl_mhi_dev *ctl_dev,
 			return;
 
 		spin_lock_bh(&ctl_dev->rx_lock);
-		rc = mhi_queue_transfer(mhi_dev, DMA_FROM_DEVICE,
-					buf, ctl_dev->mru, MHI_EOT);
+		rc = mhi_queue_buf(mhi_dev, DMA_FROM_DEVICE, /* timelm: 5.15 API */
+				   buf, ctl_dev->mru, MHI_EOT);
 		spin_unlock_bh(&ctl_dev->rx_lock);
 
 		if (rc) {
@@ -123,7 +124,7 @@ static void rmnet_ctl_ul_callback(struct mhi_device *mhi_dev,
 }
 
 static void rmnet_ctl_status_callback(struct mhi_device *mhi_dev,
-				      enum MHI_CB mhi_cb)
+				      enum mhi_callback mhi_cb) /* timelm: 5.15 API */
 {
 	struct rmnet_ctl_mhi_dev *ctl_dev = dev_get_drvdata(&mhi_dev->dev);
 
@@ -156,7 +157,7 @@ static int rmnet_ctl_probe(struct mhi_device *mhi_dev,
 	if (rc || !ctl_dev->mru)
 		ctl_dev->mru = RMNET_CTL_DEFAULT_MRU;
 
-	rc = mhi_prepare_for_transfer(mhi_dev);
+	rc = mhi_prepare_for_transfer(mhi_dev, 0); /* timelm: 5.15 API */
 	if (rc) {
 		pr_err("%s(): Failed to prep for transfer %d\n", __func__, rc);
 		return -EINVAL;

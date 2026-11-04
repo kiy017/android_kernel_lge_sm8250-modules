@@ -26,8 +26,25 @@ rmnet_core-y := \
 	rmnet_vnd.o
 
 rmnet_core-y += \
-	rmnet_ll.o \
-	rmnet_ll_ipa.o
+	rmnet_ll.o
+
+# timelm: the SDX55 data path (and RMNET_DATA_LL, if the modem ever offers it)
+# is MHI, not IPA; build with RMNET_LL_MHI=y (techpack/datarmnet/Kbuild in the kernel tree).
+ifeq ($(RMNET_LL_MHI),y)
+rmnet_core-y += rmnet_ll_mhi.o
+else
+rmnet_core-y += rmnet_ll_ipa.o
+endif
+
+# timelm: QMAP DFC needs rmnet_ctl; on kona/SDX55 it runs over the MHI
+# RMNET_CTL channels (109/110), like stock 4.19 CONFIG_RMNET_CTL.
+ifeq ($(RMNET_CTL_MHI),y)
+ccflags-y += -DRMNET_CTL_MHI
+obj-m += rmnet_ctl.o
+rmnet_ctl-y := \
+	rmnet_ctl_client.o \
+	rmnet_ctl_mhi.o
+endif
 
 #DFC sources
 rmnet_core-y += \
