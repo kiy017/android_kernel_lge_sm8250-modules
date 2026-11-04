@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# timelm: out-of-tree build of LG's 4.19 kona techpack/video (Venus / iris2,
+# msm_vidc) as msm-vidc.ko.  The 5.15 video-driver in android_kernel_lge_sm8250-modules is the
+# iris "vidc" rewrite for waipio and later and has no kona support; the
+# vendor Codec2/OMX HALs need the 4.19 msm_vidc uapi.  Same objects as the
+# stock msm/Makefile; konavid.conf/konavidconf.h; QC's 4.19 additions to the
+# core V4L2 uapi come from include/timelm/timelm_v4l2_qc.h.
+
+# timelm: in-tree via techpack/video (O=out): $(src) is objtree-relative
+VID := $(srctree)/$(src)
+
+ccflags-y += -include $(VID)/config/konavidconf.h
+ccflags-y += -include $(VID)/include/timelm/timelm_v4l2_qc.h
+ccflags-y += -I$(VID)/include/uapi -I$(VID)/include -I$(VID)/msm/vidc
+ccflags-y += -I$(srctree)/drivers/devfreq
+
+obj-m += msm-vidc.o
+
+msm-vidc-objs := msm/vidc/msm_v4l2_vidc.o \
+		msm/vidc/timelm_msm_bus_icc.o \
+		msm/vidc/msm_v4l2_private.o \
+		msm/vidc/msm_vidc_platform.o \
+		msm/vidc/msm_vidc_common.o \
+		msm/vidc/msm_vidc.o \
+		msm/vidc/msm_vdec.o \
+		msm/vidc/msm_venc.o \
+		msm/vidc/msm_cvp_internal.o \
+		msm/vidc/msm_smem.o \
+		msm/vidc/msm_vidc_debug.o \
+		msm/vidc/msm_vidc_res_parse.o \
+		msm/vidc/hfi_common.o \
+		msm/vidc/hfi_ar50.o \
+		msm/vidc/hfi_ar50_lt.o \
+		msm/vidc/hfi_iris1.o \
+		msm/vidc/hfi_iris2.o \
+		msm/vidc/hfi_response_handler.o \
+		msm/vidc/hfi_packetization.o \
+		msm/vidc/vidc_hfi.o \
+		msm/vidc/msm_vidc_clocks.o \
+		msm/vidc/msm_vidc_bus_ar50lite.o \
+		msm/vidc/msm_vidc_bus_iris1.o \
+		msm/vidc/msm_vidc_bus_iris2.o \
+		msm/vidc/msm_vidc_buffer_calculations.o
