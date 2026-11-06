@@ -3382,6 +3382,14 @@ static int msm_soc_component_ioctl(struct snd_soc_component *component,
 	return msm_lsm_ioctl(s, cmd, arg);
 }
 
+#ifdef CONFIG_COMPAT
+static int msm_soc_component_compat_ioctl(struct snd_soc_component *component,
+		struct snd_pcm_substream *s, unsigned int cmd, void *arg)
+{
+	return msm_lsm_ioctl_compat(s, cmd, arg);
+}
+#endif
+
 static int msm_soc_component_prepare(struct snd_soc_component *component,
 		struct snd_pcm_substream *s)
 {
@@ -3419,7 +3427,9 @@ static struct snd_soc_component_driver msm_soc_component = {
 	.close	= msm_soc_component_close,
 	.ioctl	= msm_soc_component_ioctl,
 	.prepare	= msm_soc_component_prepare,
-	/* timelm: .compat_ioctl = msm_lsm_ioctl_compat dropped (no 5.15 component member) */
+#ifdef CONFIG_COMPAT
+	.compat_ioctl	= msm_soc_component_compat_ioctl,
+#endif
 	.hw_params	= msm_soc_component_hw_params,
 	.copy_user	= msm_soc_component_copy_user,
 	.pointer	= msm_soc_component_pointer,
