@@ -1534,8 +1534,9 @@ static int rx_macro_set_idle_detect_thr(struct snd_soc_component *component,
 	 * numbers in port_id array.
 	 */
 	if (path_type == INTERP_MIX_PATH) {
+		/* timelm: registers are 4 apart, each INT has CFG0 + CFG1 */
 		mux_reg = BOLERO_CDC_RX_INP_MUX_RX_INT0_CFG1 +
-						2 * interp;
+						8 * interp;
 		mux_reg_val = snd_soc_component_read(component, mux_reg) &
 				0x0f;
 
@@ -1547,8 +1548,8 @@ static int rx_macro_set_idle_detect_thr(struct snd_soc_component *component,
 	}
 
 	if (path_type == INTERP_MAIN_PATH) {
-		mux_reg = BOLERO_CDC_RX_INP_MUX_RX_INT1_CFG0 +
-			  2 * (interp - 1);
+		mux_reg = BOLERO_CDC_RX_INP_MUX_RX_INT0_CFG0 +
+			  8 * interp;
 		mux_reg_val = snd_soc_component_read(component, mux_reg) &
 				0x0f;
 		i = RX_MACRO_INTERP_MUX_NUM_INPUTS;
@@ -1563,7 +1564,7 @@ static int rx_macro_set_idle_detect_thr(struct snd_soc_component *component,
 			mux_reg_val =
 				(snd_soc_component_read(component, mux_reg) &
 					0xf0) >> 4;
-			mux_reg += 1;
+			mux_reg += 4;
 			i--;
 		}
 	}
