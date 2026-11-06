@@ -803,6 +803,12 @@ static int msm_soc_component_ioctl(struct snd_soc_component *component,
 	return msm_pcm_ioctl(s, cmd, arg);
 }
 
+static int msm_soc_component_compat_ioctl(struct snd_soc_component *component,
+		struct snd_pcm_substream *s, unsigned int cmd, void *arg)
+{
+	return msm_pcm_ioctl(s, cmd, arg);
+}
+
 static int msm_soc_component_pcm_construct(struct snd_soc_component *component,
 		struct snd_soc_pcm_runtime *rtd)
 {
@@ -818,7 +824,7 @@ static struct snd_soc_component_driver msm_soc_component = {
 	.prepare	= msm_soc_component_prepare,
 	.trigger	= msm_soc_component_trigger,
 	.ioctl	= msm_soc_component_ioctl,
-	/* timelm: .compat_ioctl = msm_pcm_ioctl dropped (no 5.15 component member) */
+	.compat_ioctl	= msm_soc_component_compat_ioctl,
 	.pcm_construct	= msm_soc_component_pcm_construct,
 };
 

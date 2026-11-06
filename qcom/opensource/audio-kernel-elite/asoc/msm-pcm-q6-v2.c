@@ -2918,6 +2918,14 @@ static int msm_soc_component_ioctl(struct snd_soc_component *component,
 	return msm_pcm_ioctl(s, cmd, arg);
 }
 
+#ifdef CONFIG_COMPAT
+static int msm_soc_component_compat_ioctl(struct snd_soc_component *component,
+		struct snd_pcm_substream *s, unsigned int cmd, void *arg)
+{
+	return msm_pcm_compat_ioctl(s, cmd, arg);
+}
+#endif
+
 static int msm_soc_component_prepare(struct snd_soc_component *component,
 		struct snd_pcm_substream *s)
 {
@@ -2955,13 +2963,18 @@ static struct snd_soc_component_driver msm_soc_component = {
 	.hw_params	= msm_soc_component_hw_params,
 	.close	= msm_soc_component_close,
 	.ioctl	= msm_soc_component_ioctl,
-	/* timelm: .compat_ioctl = msm_pcm_compat_ioctl dropped (no 5.15 component member) */
+#ifdef CONFIG_COMPAT
+	.compat_ioctl	= msm_soc_component_compat_ioctl,
+#endif
 	.prepare	= msm_soc_component_prepare,
 	.trigger	= msm_soc_component_trigger,
 	.pointer	= msm_soc_component_pointer,
 	.mmap	= msm_soc_component_mmap,
 	.pcm_construct	= msm_soc_component_pcm_construct,
-	/* timelm: .delay_blk = msm_pcm_delay_blk dropped (QC 4.19 soc-pcm extension) */
+	/*
+	 * timelm: .delay_blk = msm_pcm_delay_blk not ported.  In 4.19 nothing in
+	 * sound/core calls ops.delay_blk, so it never ran on stock either.
+	 */
 };
 
 static int msm_pcm_probe(struct platform_device *pdev)
