@@ -32684,9 +32684,28 @@ static void msm_soc_routing_component_pcm_destruct(struct snd_soc_component *com
 	msm_routing_pcm_free(pcm);
 }
 
+/*
+ * timelm: this component has no registers, but its table uses reg 0 as a
+ * placeholder (AIF widgets, VALUE_ENUM muxes). 4.19 ignored the I/O errors and
+ * read 0; 5.15 logs each one and returns the error code as the register value.
+ */
+static unsigned int msm_routing_virt_read(struct snd_soc_component *component,
+					  unsigned int reg)
+{
+	return 0;
+}
+
+static int msm_routing_virt_write(struct snd_soc_component *component,
+				  unsigned int reg, unsigned int val)
+{
+	return 0;
+}
+
 static struct snd_soc_component_driver msm_soc_routing_component = {
 	.name		= DRV_NAME,
 	.probe		= msm_routing_probe,
+	.read		= msm_routing_virt_read,
+	.write		= msm_routing_virt_write,
 	.hw_params	= msm_soc_routing_component_hw_params,
 	.close	= msm_soc_routing_component_close,
 	.prepare	= msm_soc_routing_component_prepare,
