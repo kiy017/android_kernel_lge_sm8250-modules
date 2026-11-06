@@ -1766,7 +1766,7 @@ static int msm_compr_playback_open(struct snd_compr_stream *cstream)
 	pdata = snd_soc_component_get_drvdata(component);
 	if (pdata->is_in_use[rtd->dai_link->id] == true) {
 		pr_err("%s: %s is already in use, err: %d\n",
-			__func__, rtd->dai_link->cpu_dai_name, -EBUSY);
+			__func__, rtd->dai_link->cpus->dai_name, -EBUSY);
 		return -EBUSY;
 	}
 
@@ -5019,7 +5019,7 @@ static int msm_compr_add_volume_control(struct snd_soc_pcm_runtime *rtd)
 
 	pr_debug("%s: added new compr FE with name %s, id %d, cpu dai %s, device no %d\n",
 		 __func__, rtd->dai_link->name, rtd->dai_link->id,
-		 rtd->dai_link->cpu_dai_name, rtd->pcm->device);
+		 rtd->dai_link->cpus->dai_name, rtd->pcm->device);
 	ctl_len = strlen(mixer_ctl_name) + 1 + strlen(deviceNo) + 1 +
 		  strlen(suffix) + 1;
 	mixer_str = kzalloc(ctl_len, GFP_KERNEL);
@@ -5070,7 +5070,7 @@ static int msm_compr_add_audio_effects_control(struct snd_soc_pcm_runtime *rtd)
 
 	pr_debug("%s: added new compr FE with name %s, id %d, cpu dai %s, device no %d\n",
 		 __func__, rtd->dai_link->name, rtd->dai_link->id,
-		 rtd->dai_link->cpu_dai_name, rtd->pcm->device);
+		 rtd->dai_link->cpus->dai_name, rtd->pcm->device);
 
 	ctl_len = strlen(mixer_ctl_name) + 1 + strlen(deviceNo) + 1;
 	mixer_str = kzalloc(ctl_len, GFP_KERNEL);
@@ -5122,7 +5122,7 @@ static int msm_compr_add_query_audio_effect_control(
 
 	pr_debug("%s: added new compr FE with name %s, id %d, cpu dai %s, device no %d\n",
 		 __func__, rtd->dai_link->name, rtd->dai_link->id,
-		 rtd->dai_link->cpu_dai_name, rtd->pcm->device);
+		 rtd->dai_link->cpus->dai_name, rtd->pcm->device);
 	ctl_len = strlen(mixer_ctl_name) + 1 + strlen(deviceNo) + 1;
 	mixer_str = kzalloc(ctl_len, GFP_KERNEL);
 	if (!mixer_str) {
@@ -5295,7 +5295,7 @@ static int msm_compr_add_dec_runtime_params_control(
 
 	pr_debug("%s: added new compr FE with name %s, id %d, cpu dai %s, device no %d\n",
 		 __func__, rtd->dai_link->name, rtd->dai_link->id,
-		 rtd->dai_link->cpu_dai_name, rtd->pcm->device);
+		 rtd->dai_link->cpus->dai_name, rtd->pcm->device);
 
 	ctl_len = strlen(mixer_ctl_name) + 1 + strlen(deviceNo) + 1 +
 		  strlen(suffix) + 1;
@@ -5351,7 +5351,7 @@ static int msm_compr_add_app_type_cfg_control(struct snd_soc_pcm_runtime *rtd)
 
 	pr_debug("%s: added new compr FE ctl with name %s, id %d, cpu dai %s, device no %d\n",
 		__func__, rtd->dai_link->name, rtd->dai_link->id,
-			rtd->dai_link->cpu_dai_name, rtd->pcm->device);
+			rtd->dai_link->cpus->dai_name, rtd->pcm->device);
 	if (rtd->compr->direction == SND_COMPRESS_PLAYBACK)
 		ctl_len = strlen(playback_mixer_ctl_name) + 1 + strlen(deviceNo)
 			 + 1 + strlen(suffix) + 1;
@@ -5426,7 +5426,7 @@ static int msm_compr_add_channel_map_control(struct snd_soc_pcm_runtime *rtd)
 
 	pr_debug("%s: added new compr FE with name %s, id %d, cpu dai %s, device no %d\n",
 		 __func__, rtd->dai_link->name, rtd->dai_link->id,
-		 rtd->dai_link->cpu_dai_name, rtd->pcm->device);
+		 rtd->dai_link->cpus->dai_name, rtd->pcm->device);
 
 	ctl_len = strlen(mixer_ctl_name) + strlen(deviceNo) + 1;
 	mixer_str = kzalloc(ctl_len, GFP_KERNEL);
@@ -6187,26 +6187,113 @@ static int msm_compr_new(struct snd_soc_pcm_runtime *rtd)
 	return 0;
 }
 
-static struct snd_compr_ops msm_compr_ops = {
-	.open			= msm_compr_open,
-	.free			= msm_compr_free,
-	.trigger		= msm_compr_trigger,
-	.pointer		= msm_compr_pointer,
-	.set_params		= msm_compr_set_params,
-	.set_metadata		= msm_compr_set_metadata,
-	.get_metadata		= msm_compr_get_metadata,
-	.set_next_track_param	= msm_compr_set_next_track_param,
-	.ack			= msm_compr_ack,
-	.copy			= msm_compr_copy,
-	.get_caps		= msm_compr_get_caps,
-	.get_codec_caps		= msm_compr_get_codec_caps,
+/* timelm: 5.15 component compress ops, thin adapters to the 4.19 functions */
+static int timelm_compr_open(struct snd_soc_component *component,
+			     struct snd_compr_stream *cstream)
+{
+	return msm_compr_open(cstream);
+}
+
+static int timelm_compr_free(struct snd_soc_component *component,
+			     struct snd_compr_stream *cstream)
+{
+	return msm_compr_free(cstream);
+}
+
+static int timelm_compr_trigger(struct snd_soc_component *component,
+				struct snd_compr_stream *cstream, int cmd)
+{
+	return msm_compr_trigger(cstream, cmd);
+}
+
+static int timelm_compr_pointer(struct snd_soc_component *component,
+				struct snd_compr_stream *cstream,
+				struct snd_compr_tstamp *arg)
+{
+	return msm_compr_pointer(cstream, arg);
+}
+
+static int timelm_compr_set_params(struct snd_soc_component *component,
+				   struct snd_compr_stream *cstream,
+				   struct snd_compr_params *params)
+{
+	return msm_compr_set_params(cstream, params);
+}
+
+static int timelm_compr_set_metadata(struct snd_soc_component *component,
+				     struct snd_compr_stream *cstream,
+				     struct snd_compr_metadata *metadata)
+{
+	return msm_compr_set_metadata(cstream, metadata);
+}
+
+static int timelm_compr_get_metadata(struct snd_soc_component *component,
+				     struct snd_compr_stream *cstream,
+				     struct snd_compr_metadata *metadata)
+{
+	return msm_compr_get_metadata(cstream, metadata);
+}
+
+static int timelm_compr_set_next_track_param(struct snd_soc_component *component,
+					     struct snd_compr_stream *cstream,
+					     union snd_codec_options *codec_options)
+{
+	return msm_compr_set_next_track_param(cstream, codec_options);
+}
+
+static int timelm_compr_ack(struct snd_soc_component *component,
+			    struct snd_compr_stream *cstream, size_t count)
+{
+	return msm_compr_ack(cstream, count);
+}
+
+static int timelm_compr_copy(struct snd_soc_component *component,
+			     struct snd_compr_stream *cstream,
+			     char __user *buf, size_t count)
+{
+	return msm_compr_copy(cstream, buf, count);
+}
+
+static int timelm_compr_get_caps(struct snd_soc_component *component,
+				 struct snd_compr_stream *cstream,
+				 struct snd_compr_caps *arg)
+{
+	return msm_compr_get_caps(cstream, arg);
+}
+
+static int timelm_compr_get_codec_caps(struct snd_soc_component *component,
+				       struct snd_compr_stream *cstream,
+				       struct snd_compr_codec_caps *codec)
+{
+	return msm_compr_get_codec_caps(cstream, codec);
+}
+
+static const struct snd_compress_ops msm_compr_ops = {
+	.open			= timelm_compr_open,
+	.free			= timelm_compr_free,
+	.trigger		= timelm_compr_trigger,
+	.pointer		= timelm_compr_pointer,
+	.set_params		= timelm_compr_set_params,
+	.set_metadata		= timelm_compr_set_metadata,
+	.get_metadata		= timelm_compr_get_metadata,
+	.set_next_track_param	= timelm_compr_set_next_track_param,
+	.ack			= timelm_compr_ack,
+	.copy			= timelm_compr_copy,
+	.get_caps		= timelm_compr_get_caps,
+	.get_codec_caps		= timelm_compr_get_codec_caps,
 };
+
+static int timelm_compr_pcm_construct(struct snd_soc_component *component,
+				      struct snd_soc_pcm_runtime *rtd)
+{
+	return msm_compr_new(rtd);
+}
 
 static struct snd_soc_component_driver msm_soc_component = {
 	.name		= DRV_NAME,
 	.probe		= msm_compr_probe,
-	.compr_ops	= &msm_compr_ops,
-	.pcm_new	= msm_compr_new,
+	.compress_ops	= &msm_compr_ops,
+	.pcm_construct	= timelm_compr_pcm_construct,
 };
 
 static int msm_compr_dev_probe(struct platform_device *pdev)
