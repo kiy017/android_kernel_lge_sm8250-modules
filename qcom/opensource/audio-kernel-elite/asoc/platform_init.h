@@ -5,7 +5,7 @@
 
 #ifndef __PLATFORM_INIT_H__
 #define __PLATFORM_INIT_H__
-int msm_compress_dsp_init(void);	/* timelm: real driver or timelm-compress-stub.c */
+int msm_compress_dsp_init(void);
 int msm_fe_dai_init(void);
 int msm_dai_q6_hdmi_init(void);
 int msm_dai_q6_init(void);
@@ -21,7 +21,7 @@ int msm_pcm_dsp_init(void);
 int msm_soc_routing_platform_init(void);
 int msm_pcm_voice_init(void);
 int msm_pcm_voip_init(void);
-#ifdef TIMELM_COMPRESS_OFFLOAD
+#ifdef TIMELM_TRANSCODE_LOOPBACK
 int msm_transcode_loopback_init(void);
 #else
 static inline int msm_transcode_loopback_init(void) { return 0; }
@@ -29,7 +29,7 @@ static inline int msm_transcode_loopback_init(void) { return 0; }
 int msm_cpe_lsm_init(void);
 
 void msm_cpe_lsm_exit(void);
-#ifdef TIMELM_COMPRESS_OFFLOAD
+#ifdef TIMELM_TRANSCODE_LOOPBACK
 void msm_transcode_loopback_exit(void);
 #else
 static inline void msm_transcode_loopback_exit(void) {}
