@@ -3838,12 +3838,11 @@ static void _sde_plane_setup_capabilities_blob(struct sde_plane *psde,
 		sde_kms_info_stop(info);
 	}
 
-	if (psde->pipe_hw && catalog->qseed_hw_rev)
+	/* timelm: only pipes with a scaler report it, as on 4.19 */
+	if (psde->pipe_hw && catalog->qseed_hw_rev &&
+	    (psde->features & (BIT(SDE_SSPP_SCALER_QSEED3) |
+			       BIT(SDE_SSPP_SCALER_QSEED3LITE))))
 		sde_kms_info_add_keyint(info, "scaler_step_ver", catalog->qseed_hw_rev);
-	else if (psde->pipe_hw && psde->pipe_sblk->scaler_blk.version)
-		/* timelm: HW-read version (4.19 behaviour), see sde_hw_sspp_init */
-		sde_kms_info_add_keyint(info, "scaler_step_ver",
-			psde->pipe_sblk->scaler_blk.version);
 
 	sde_kms_info_add_keyint(info, "max_linewidth",
 			psde->pipe_sblk->maxlinewidth);

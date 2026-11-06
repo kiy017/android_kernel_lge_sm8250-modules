@@ -1637,22 +1637,6 @@ struct sde_hw_pipe *sde_hw_sspp_init(enum sde_sspp idx,
 	if (catalog->qseed_hw_rev) {
 		sde_init_scaler_blk(&hw_pipe->cap->sblk->scaler_blk,
 			catalog->qseed_hw_rev);
-	} else if (test_bit(SDE_SSPP_SCALER_QSEED3, &hw_pipe->cap->features) ||
-		   test_bit(SDE_SSPP_SCALER_QSEED3LITE, &hw_pipe->cap->features)) {
-		/*
-		 * timelm: kona's DT has no qcom,sde-qseed-scalar-version.  Read the
-		 * version from the scaler like 4.19 did; with 0 the QSEED3lite UV
-		 * LUTs are programmed in the QSEED3 layout and HWC gets no
-		 * scaler_step_ver (YUV video renders with zero chroma = green).
-		 */
-		u32 idx, ver = 0;
-
-		if (!_sspp_subblk_offset(hw_pipe, SDE_SSPP_SCALER_QSEED3, &idx))
-			ver = sde_hw_get_scaler3_ver(&hw_pipe->hw, idx);
-		pr_info("TIMELMSDE: sspp %d qseed hw version 0x%x\n",
-			hw_pipe->idx, ver);
-		if (ver)
-			sde_init_scaler_blk(&hw_pipe->cap->sblk->scaler_blk, ver);
 	}
 
 	if (!is_virtual_pipe) {
