@@ -283,7 +283,6 @@ static int dsi_panel_reset(struct dsi_panel *panel)
 		gpio_set_value(r_config->reset_gpio,
 			       r_config->sequence[i].level);
 
-
 		if (r_config->sequence[i].sleep_ms)
 			usleep_range(r_config->sequence[i].sleep_ms * 1000,
 				(r_config->sequence[i].sleep_ms * 1000) + 100);
@@ -350,7 +349,6 @@ static int dsi_panel_set_pinctrl_state(struct dsi_panel *panel, bool enable)
 	return rc;
 }
 
-
 static int dsi_panel_power_on(struct dsi_panel *panel)
 {
 	int rc = 0;
@@ -367,6 +365,9 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 		DSI_ERR("[%s] failed to set pinctrl, rc=%d\n", panel->name, rc);
 		goto error_disable_vregs;
 	}
+
+	if (panel->lp11_init)
+		goto exit;
 
 	rc = dsi_panel_reset(panel);
 	if (rc) {
@@ -426,7 +427,7 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 
 	return rc;
 }
-static int dsi_panel_tx_cmd_set(struct dsi_panel *panel,
+int dsi_panel_tx_cmd_set(struct dsi_panel *panel,
 				enum dsi_cmd_set_type type)
 {
 	int rc = 0, i = 0;
@@ -470,6 +471,7 @@ static int dsi_panel_tx_cmd_set(struct dsi_panel *panel,
 		if (cmds->post_wait_ms)
 			usleep_range(cmds->post_wait_ms*1000,
 					((cmds->post_wait_ms*1000)+10));
+
 		cmds++;
 	}
 error:
@@ -1188,6 +1190,25 @@ static int dsi_panel_parse_misc_host_config(struct dsi_host_common_cfg *host,
 		host->dma_sched_window = 0;
 	else
 		host->dma_sched_window = window;
+
+	rc = utils->read_u32(utils->data, "qcom,mdss-dsi-clk-strength", &val);
+	if (!rc) {
+		host->clk_strength = val;
+		pr_info("[%s] clk_strength = %d\n", name, val);
+	} else {
+		host->clk_strength = 0;
+		pr_info("[%s] clk_strength default value = %d\n", name, val);
+	}
+
+	rc = utils->read_u32(utils->data, "qcom,mdss-dsi-deemph-eq-strength", &val);
+	if (!rc) {
+		host->deemph_eq_strength = val;
+		pr_info("[%s] deemph eq_strength = %d\n", name, host->deemph_eq_strength);
+	} else {
+		host->deemph_eq_strength = 0;
+		pr_info("[%s] deemph eq_strength default value = %d\n", name, host->deemph_eq_strength);
+	}
+
 	rc = utils->read_u32(utils->data, "qcom,vert-padding-value", &host->vpadding);
 	host->line_insertion_enable = (rc || host->vpadding <= 0) ? false : true;
 	DSI_DEBUG("[%s] DMA scheduling parameters Line: %d Window: %d\n", name,
@@ -1867,6 +1888,7 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"qcom,video-mode-switch-out-commands",
 	"qcom,cmd-mode-switch-in-commands",
 	"qcom,cmd-mode-switch-out-commands",
+	"qcom,mdss-dsi-panel-status-offset-command",
 	"qcom,mdss-dsi-panel-status-command",
 	"qcom,mdss-dsi-lp1-command",
 	"qcom,mdss-dsi-lp2-command",
@@ -1895,6 +1917,7 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"qcom,video-mode-switch-out-commands-state",
 	"qcom,cmd-mode-switch-in-commands-state",
 	"qcom,cmd-mode-switch-out-commands-state",
+	"qcom,mdss-dsi-panel-status-offset-command-state",
 	"qcom,mdss-dsi-panel-status-command-state",
 	"qcom,mdss-dsi-lp1-command-state",
 	"qcom,mdss-dsi-lp2-command-state",
@@ -1993,7 +2016,8 @@ void dsi_panel_destroy_cmd_packets(struct dsi_panel_cmd_set *set)
 
 void dsi_panel_dealloc_cmd_packets(struct dsi_panel_cmd_set *set)
 {
-	kfree(set->cmds);
+	if (set->cmds)
+		kfree(set->cmds);
 }
 
 int dsi_panel_alloc_cmd_packets(struct dsi_panel_cmd_set *cmd,
@@ -2010,7 +2034,7 @@ int dsi_panel_alloc_cmd_packets(struct dsi_panel_cmd_set *cmd,
 	return 0;
 }
 
-static int dsi_panel_parse_cmd_sets_sub(struct dsi_panel_cmd_set *cmd,
+int dsi_panel_parse_cmd_sets_sub(struct dsi_panel_cmd_set *cmd,
 					enum dsi_cmd_set_type type,
 					struct dsi_parser_utils *utils)
 {
@@ -2172,7 +2196,6 @@ static int dsi_panel_parse_reset_sequence(struct dsi_panel *panel)
 		seq++;
 	}
 
-
 error_free_arr_32:
 	kfree(arr_32);
 error:
@@ -2199,6 +2222,11 @@ static int dsi_panel_parse_misc_features(struct dsi_panel *panel)
 
 	panel->te_using_watchdog_timer = utils->read_bool(utils->data,
 					"qcom,mdss-dsi-te-using-wd");
+
+	panel->switch_vsync_delay = utils->read_bool(utils->data,
+			"qcom,mdss-dsi-panel-vsync-delay");
+	DSI_DEBUG("%s: vsync_delay feature %s\n", __func__,
+		(panel->switch_vsync_delay ? "enabled" : "disabled"));
 
 	panel->sync_broadcast_en = utils->read_bool(utils->data,
 			"qcom,cmd-sync-wait-broadcast");
@@ -2562,6 +2590,17 @@ static int dsi_panel_parse_bl_config(struct dsi_panel *panel)
 		panel->bl_config.brightness_max_level = val;
 	}
 
+	rc = utils->read_u32(utils->data, "qcom,mdss-brightness-init-level",
+		&val);
+	if (rc) {
+		DSI_DEBUG("[%s] brigheness-init-level unspecified, defaulting to 15% max level\n",
+			 panel->name);
+		panel->bl_config.brightness_init_level =
+			(panel->bl_config.brightness_max_level * 15) / 100;
+	} else {
+		panel->bl_config.brightness_init_level = val;
+	}
+
 	panel->bl_config.bl_inverted_dbv = utils->read_bool(utils->data,
 		"qcom,mdss-dsi-bl-inverted-dbv");
 
@@ -2650,7 +2689,7 @@ static int dsi_panel_parse_phy_timing(struct dsi_display_mode *mode,
 	return rc;
 }
 
-static int dsi_panel_parse_dsc_params(struct dsi_display_mode *mode,
+static int dsi_panel_parse_dsc_params(struct dsi_panel *panel, struct dsi_display_mode *mode,
 				struct dsi_parser_utils *utils)
 {
 	u32 data;
@@ -2659,7 +2698,7 @@ static int dsi_panel_parse_dsc_params(struct dsi_display_mode *mode,
 	const char *compression;
 	struct dsi_display_mode_priv_info *priv_info;
 
-	if (!mode || !mode->priv_info)
+	if (!panel || !mode || !mode->priv_info)
 		return -EINVAL;
 
 	priv_info = mode->priv_info;
@@ -3384,6 +3423,12 @@ int dsi_panel_parse_esd_reg_read_configs(struct dsi_panel *panel)
 	esd_config = &panel->esd_config;
 	if (!esd_config)
 		return -EINVAL;
+
+	dsi_panel_parse_cmd_sets_sub(&esd_config->offset_cmd,
+				DSI_CMD_SET_PANEL_STATUS_OFFSET, utils);
+	if (!esd_config->offset_cmd.count) {
+		DSI_ERR("panel status offset command parsing failed\n");
+	}
 
 	dsi_panel_parse_cmd_sets_sub(&esd_config->status_cmd,
 				DSI_CMD_SET_PANEL_STATUS, utils);
@@ -4153,7 +4198,6 @@ void dsi_panel_calc_dsi_transfer_time(struct dsi_host_common_cfg *config,
 	display_mode->pixel_clk_khz =  display_mode->pixel_clk_khz / 1000;
 }
 
-
 int dsi_panel_get_mode(struct dsi_panel *panel,
 			u32 index, struct dsi_display_mode *mode,
 			int topology_override)
@@ -4226,7 +4270,7 @@ int dsi_panel_get_mode(struct dsi_panel *panel,
 				DSI_ERR("failed to parse dynamic clk rates, rc=%d\n", rc);
 		}
 
-		rc = dsi_panel_parse_dsc_params(mode, utils);
+		rc = dsi_panel_parse_dsc_params(panel, mode, utils);
 		if (rc) {
 			DSI_ERR("failed to parse dsc params, rc=%d\n", rc);
 			goto parse_fail;
@@ -4330,10 +4374,6 @@ int dsi_panel_pre_prepare(struct dsi_panel *panel)
 	}
 
 	mutex_lock(&panel->panel_lock);
-
-	/* If LP11_INIT is set, panel will be powered up during prepare() */
-	if (panel->lp11_init)
-		goto error;
 
 	rc = dsi_panel_power_on(panel);
 	if (rc) {
@@ -4490,9 +4530,9 @@ int dsi_panel_prepare(struct dsi_panel *panel)
 	mutex_lock(&panel->panel_lock);
 
 	if (panel->lp11_init) {
-		rc = dsi_panel_power_on(panel);
+		rc = dsi_panel_reset(panel);
 		if (rc) {
-			DSI_ERR("[%s] panel power on failed, rc=%d\n",
+			DSI_ERR("[%s] panel reset failed, rc=%d\n",
 			       panel->name, rc);
 			goto error;
 		}
@@ -4900,6 +4940,7 @@ int dsi_panel_disable(struct dsi_panel *panel)
 			panel->power_mode == SDE_MODE_DPMS_LP2))
 			dsi_pwr_panel_regulator_mode_set(&panel->power_info,
 				"ibb", REGULATOR_MODE_STANDBY);
+		dsi_panel_update_backlight(panel, 0);
 		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_OFF);
 		if (rc) {
 			/*

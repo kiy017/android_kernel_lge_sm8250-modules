@@ -9,6 +9,8 @@
 #include <linux/of_gpio.h>
 #include <linux/err.h>
 #include <linux/version.h>
+#include <video/mipi_display.h>
+
 
 #include "msm_drv.h"
 #include "sde_connector.h"
@@ -612,6 +614,7 @@ static bool dsi_display_validate_reg_read(struct dsi_panel *panel)
 	return false;
 }
 
+
 static void dsi_display_parse_demura_data(struct dsi_display *display)
 {
 	int rc = 0;
@@ -903,7 +906,7 @@ static int dsi_display_status_check_te(struct dsi_display *display,
 		int rechecks)
 {
 	int rc = 1, i = 0;
-	int const esd_te_timeout = msecs_to_jiffies(3*20);
+	int const esd_te_timeout = msecs_to_jiffies(15*20);
 
 	if (!rechecks)
 		return rc;
@@ -918,9 +921,8 @@ static int dsi_display_status_check_te(struct dsi_display *display,
 		if (!wait_for_completion_timeout(&display->esd_te_gate,
 					esd_te_timeout)) {
 			DSI_ERR("TE check failed\n");
-			dsi_display_change_te_irq_status(display, false);
-			dsi_display_release_te_irq(display);
-			return -EINVAL;
+			rc = -EINVAL;
+			break;
 		}
 	}
 
@@ -979,8 +981,10 @@ int dsi_display_check_status(struct drm_connector *connector, void *display,
 	}
 	SDE_EVT32(SDE_EVTLOG_FUNC_ENTRY, status_mode, te_check_override);
 
-	if (te_check_override)
+	if (te_check_override && gpio_is_valid(dsi_display->disp_te_gpio)){
+		status_mode = ESD_MODE_PANEL_TE;
 		te_rechecks = MAX_TE_RECHECKS;
+	}
 
 	if ((dsi_display->trusted_vm_env) ||
 			(panel->panel_mode == DSI_OP_VIDEO_MODE))
@@ -1029,7 +1033,7 @@ release_panel_lock:
 	return rc;
 }
 
-static int dsi_display_ctrl_get_host_init_state(struct dsi_display *dsi_display,
+int dsi_display_ctrl_get_host_init_state(struct dsi_display *dsi_display,
 		bool *state)
 {
 	struct dsi_display_ctrl *ctrl;
@@ -1048,7 +1052,7 @@ static int dsi_display_ctrl_get_host_init_state(struct dsi_display *dsi_display,
 	return rc;
 }
 
-static int dsi_display_cmd_rx(struct dsi_display *display,
+int dsi_display_cmd_rx(struct dsi_display *display,
 			      struct dsi_cmd_desc *cmd)
 {
 	struct dsi_display_ctrl *m_ctrl = NULL;
@@ -1600,7 +1604,7 @@ static ssize_t debugfs_esd_trigger_check(struct file *file,
 	struct dsi_display *display = file->private_data;
 	char *buf;
 	int rc = 0;
-	struct drm_panel_esd_config *esd_config = &display->panel->esd_config;
+	//struct drm_panel_esd_config *esd_config = &display->panel->esd_config;
 	u32 esd_trigger;
 	size_t len;
 
@@ -1620,10 +1624,10 @@ static ssize_t debugfs_esd_trigger_check(struct file *file,
 		atomic_read(&display->panel->esd_recovery_pending))
 		return user_len;
 
-	if (!esd_config->esd_enabled) {
+	/*if (!esd_config->esd_enabled) {
 		DSI_ERR("ESD feature is not enabled\n");
 		return -EINVAL;
-	}
+	}*/
 
 	buf = kzalloc(ESD_TRIGGER_STRING_MAX_LEN, GFP_KERNEL);
 	if (!buf)
@@ -2060,7 +2064,8 @@ static int dsi_display_debugfs_init(struct dsi_display *display)
 	debugfs_create_bool("ulps_suspend_feature_enable", 0600, dir,
 			&display->panel->ulps_suspend_enabled);
 
-	debugfs_create_bool("ulps_status", 0400, dir, &display->ulps_enabled);
+	debugfs_create_bool("ulps_status", 0400, dir,
+			&display->ulps_enabled);
 
 	debugfs_create_u32("clk_gating_config", 0600, dir, &display->clk_gating_config);
 
@@ -6826,6 +6831,7 @@ int dsi_display_get_info(struct drm_connector *connector,
 
 	info->dsc_count = display->panel->dsc_count;
 	info->lm_count = display->panel->lm_count;
+	info->switch_vsync_delay = display->panel->switch_vsync_delay;
 error:
 	mutex_unlock(&display->display_lock);
 	return rc;
@@ -6999,6 +7005,7 @@ static int dsi_display_mode_dyn_clk_cpy(struct dsi_display *display,
 	bit_clk_list = &dst->priv_info->bit_clk_list;
 	bit_clk_list->front_porches =
 			kcalloc(count, sizeof(u32), GFP_KERNEL);
+
 	if (!bit_clk_list->front_porches) {
 		DSI_ERR("failed to allocate space for front porch list\n");
 		rc = -ENOMEM;
@@ -7115,6 +7122,16 @@ int dsi_display_get_modes_helper(struct dsi_display *display,
 			return rc;
 		}
 
+		/*
+		 * Update the host_config.dst_format for compressed RGB101010 pixel format.
+		 */
+		if (display->panel->host_config.dst_format == DSI_PIXEL_FORMAT_RGB101010 &&
+			display_mode.timing.dsc_enabled) {
+			display->panel->host_config.dst_format = DSI_PIXEL_FORMAT_RGB888;
+			DSI_DEBUG("updated dst_format from %d to %d\n",
+				DSI_PIXEL_FORMAT_RGB101010,
+				display->panel->host_config.dst_format);
+		}
 		if (display->cmdline_timing == display_mode.mode_idx) {
 			topology_override = display->cmdline_topology;
 			is_preferred = true;
@@ -7993,6 +8010,7 @@ static void dsi_display_handle_fifo_overflow(struct work_struct *work)
 	}
 
 	DSI_INFO("handle DSI FIFO overflow error\n");
+
 	SDE_EVT32(SDE_EVTLOG_FUNC_ENTRY);
 
 	dsi_display_clk_ctrl(display->dsi_clk_handle,
@@ -8513,7 +8531,8 @@ static int dsi_display_set_roi(struct dsi_display *display,
 
 int dsi_display_pre_kickoff(struct drm_connector *connector,
 		struct dsi_display *display,
-		struct msm_display_kickoff_params *params)
+		struct msm_display_kickoff_params *params,
+		bool force_update_dsi_clocks)
 {
 	struct dsi_display_mode *mode;
 	int rc = 0, ret = 0;
@@ -8526,7 +8545,7 @@ int dsi_display_pre_kickoff(struct drm_connector *connector,
 		_dsi_display_setup_misr(display);
 
 	/* dynamic DSI clock setting */
-	if (atomic_read(&display->clkrate_change_pending)) {
+	if (atomic_read(&display->clkrate_change_pending) && force_update_dsi_clocks) {
 		mutex_lock(&display->display_lock);
 		/*
 		 * acquire panel_lock to make sure no commands are in progress
@@ -8570,6 +8589,7 @@ int dsi_display_pre_kickoff(struct drm_connector *connector,
 		 * Don't check the return value so as not to impact DRM commit
 		 * when error occurs.
 		 */
+		SDE_EVT32(SDE_EVTLOG_FUNC_CASE1);
 		(void)dsi_display_force_update_dsi_clk(display);
 wait_failure:
 		/* release panel_lock */

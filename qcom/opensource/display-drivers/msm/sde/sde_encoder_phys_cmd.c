@@ -208,6 +208,9 @@ static void _sde_encoder_phys_signal_frame_done(struct sde_encoder_phys *phys_en
 	struct sde_hw_ctl *ctl;
 	u32 scheduler_status = INVALID_CTL_STATUS, event = 0;
 	struct sde_hw_pp_vsync_info info[MAX_CHANNELS_PER_ENC] = {{0}};
+	ktime_t last_pp_done_timestamp = ktime_get();
+
+	sde_encoder_helper_get_pp_line_count(phys_enc->parent, info);
 
 	cmd_enc = to_sde_encoder_phys_cmd(phys_enc);
 	ctl = phys_enc->hw_ctl;
@@ -238,6 +241,7 @@ static void _sde_encoder_phys_signal_frame_done(struct sde_encoder_phys *phys_en
 		info[0].rd_ptr_line_count, info[1].pp_idx, info[1].intf_idx,
 		info[1].intf_frame_count, info[1].wr_ptr_line_count, info[1].rd_ptr_line_count);
 
+	phys_enc->last_pp_done_timestamp = last_pp_done_timestamp;
 	/*
 	 * For hw-fences, in the last frame during the autorefresh disable transition
 	 * hw won't trigger the output-fence signal once the frame is done, therefore
@@ -362,6 +366,8 @@ static void sde_encoder_phys_cmd_wr_ptr_irq(void *arg, int irq_idx)
 	struct sde_hw_ctl *ctl;
 	u32 event = 0, qsync_mode = 0;
 	struct sde_hw_pp_vsync_info info[MAX_CHANNELS_PER_ENC] = {{0}};
+
+	sde_encoder_helper_get_pp_line_count(phys_enc->parent, info);
 
 	if (!phys_enc || !phys_enc->hw_ctl)
 		return;
@@ -1245,6 +1251,8 @@ static void sde_encoder_phys_cmd_enable_helper(
 		hw_intf->ops.enable_wide_bus(hw_intf,
 			sde_encoder_is_widebus_enabled(phys_enc->parent));
 
+	sde_encoder_override_tearcheck_rd_ptr(phys_enc);
+
 	/*
 	 * For pp-split, skip setting the flush bit for the slave intf, since
 	 * both intfs use same ctl and HW will only flush the master.
@@ -2038,6 +2046,8 @@ static void sde_encoder_phys_cmd_trigger_start(
 
 	if (!phys_enc)
 		return;
+
+	sde_encoder_helper_get_pp_line_count(phys_enc->parent, info);
 
 	/* we don't issue CTL_START when using autorefresh */
 	frame_cnt = _sde_encoder_phys_cmd_get_autorefresh_property(phys_enc);

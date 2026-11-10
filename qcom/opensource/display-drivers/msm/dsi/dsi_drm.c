@@ -181,6 +181,7 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 {
 	int rc = 0;
 	struct dsi_bridge *c_bridge = to_dsi_bridge(bridge);
+	struct dsi_display *display;
 
 	if (!bridge) {
 		DSI_ERR("Invalid params\n");
@@ -191,6 +192,8 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 		DSI_ERR("Incorrect bridge details\n");
 		return;
 	}
+
+	display = c_bridge->display;
 
 	if (bridge->encoder->crtc->state->active_changed)
 		atomic_set(&c_bridge->display->panel->esd_recovery_pending, 0);
@@ -234,6 +237,8 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 	if (rc)
 		DSI_ERR("Continuous splash pipeline cleanup failed, rc=%d\n",
 									rc);
+	sde_connector_update_panel_dead(display->drm_conn, !display->panel->panel_initialized);
+
 }
 
 static void dsi_bridge_enable(struct drm_bridge *bridge)
@@ -1254,14 +1259,15 @@ enum drm_mode_status dsi_conn_mode_valid(struct drm_connector *connector,
 
 int dsi_conn_pre_kickoff(struct drm_connector *connector,
 		void *display,
-		struct msm_display_kickoff_params *params)
+		struct msm_display_kickoff_params *params,
+		bool force_update_dsi_clocks)
 {
 	if (!connector || !display || !params) {
 		DSI_ERR("Invalid params\n");
 		return -EINVAL;
 	}
 
-	return dsi_display_pre_kickoff(connector, display, params);
+	return dsi_display_pre_kickoff(connector, display, params, force_update_dsi_clocks);
 }
 
 int dsi_conn_prepare_commit(void *display,
