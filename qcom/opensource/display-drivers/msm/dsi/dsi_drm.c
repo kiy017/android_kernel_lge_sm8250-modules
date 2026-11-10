@@ -131,6 +131,12 @@ void dsi_convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
 	if (dsi_mode->timing.v_sync_polarity)
 		drm_mode->flags |= DRM_MODE_FLAG_PVSYNC;
 
+	/* 4.19 HAL: a command mode flag marks a smart panel (doze support) */
+	if (dsi_mode->panel_mode_caps & DSI_OP_CMD_MODE)
+		drm_mode->flags |= DRM_MODE_FLAG_LEGACY_CMD_MODE_PANEL;
+	else if (dsi_mode->panel_mode_caps & DSI_OP_VIDEO_MODE)
+		drm_mode->flags |= DRM_MODE_FLAG_LEGACY_VID_MODE_PANEL;
+
 	/* set mode name */
 	snprintf(drm_mode->name, DRM_DISPLAY_MODE_LEN, "%dx%dx%d%s",
 			drm_mode->hdisplay, drm_mode->vdisplay,
