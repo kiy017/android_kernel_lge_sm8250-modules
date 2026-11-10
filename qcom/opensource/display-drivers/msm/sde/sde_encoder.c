@@ -3506,17 +3506,19 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 				SDE_ENC_RC_EVENT_PRE_STOP);
 	}
 
-	/* wait for any pending vsync timestamp event to sf
-	 * to ensure vbalnk irq is disabled.
-	 */
-	if (sde_enc->vblank_enabled)
-		sde_encoder_wait_for_vsync_event_complete(sde_enc);
-
 	/*
 	 * wait for any pending vsync timestamp event to sf
 	 * to ensure vbalnk irq is disabled.
+	 *
+	 * timelm: only with HW vsync timestamps, where DRM disables vblank
+	 * immediately.  kona has none, so vblank stays on for vblankoffdelay
+	 * (5 s) after SF stops vsync: the wait always timed out and its forced
+	 * control_vblank_irq(false) left the refcount at 0 for the
+	 * drm_crtc_vblank_off() in sde_crtc_disable() (-EINVAL).  That
+	 * vblank_off right after this disables the irq properly.
 	 */
 	if (sde_enc->vblank_enabled &&
+			test_bit(SDE_FEATURE_HW_VSYNC_TS, sde_kms->catalog->features) &&
 			!msm_is_mode_seamless_poms(&c_state->msm_mode))
 		sde_encoder_wait_for_vsync_event_complete(sde_enc);
 
