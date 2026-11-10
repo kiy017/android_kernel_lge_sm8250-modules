@@ -16,6 +16,8 @@ void timelm_panel_lge_put(struct dsi_panel *panel);
 void timelm_panel_lge_enable_locked(struct dsi_panel *panel);
 /* dsi_panel_disable(), before the off-command; panel_lock held */
 void timelm_panel_lge_disable_locked(struct dsi_panel *panel);
+/* dsi_panel_enable(): true when the panel is being enabled into doze */
+bool timelm_panel_lge_enable_to_lp(struct dsi_panel *panel);
 /* dsi_panel_set_backlight(): DBV stays at 0x6A9 while LHBM is lit */
 bool timelm_lhbm_blocks_bl(struct dsi_panel *panel);
 

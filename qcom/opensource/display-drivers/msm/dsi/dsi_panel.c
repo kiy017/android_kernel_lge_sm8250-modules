@@ -4466,6 +4466,7 @@ error:
 int dsi_panel_set_lp1(struct dsi_panel *panel)
 {
 	int rc = 0;
+	bool notify = false;
 
 	if (!panel) {
 		DSI_ERR("invalid params\n");
@@ -4491,14 +4492,19 @@ int dsi_panel_set_lp1(struct dsi_panel *panel)
 	if (rc)
 		DSI_ERR("[%s] failed to send DSI_CMD_SET_LP1 cmd, rc=%d\n",
 		       panel->name, rc);
+	notify = !rc;
 exit:
 	mutex_unlock(&panel->panel_lock);
+	/* stock: U2_BLANK, the touch core keeps LPWG (knock-on, FP long press) */
+	if (notify)
+		timelm_panel_notify(LGE_PANEL_EVENT_BLANK, LGE_PANEL_STATE_LP1);
 	return rc;
 }
 
 int dsi_panel_set_lp2(struct dsi_panel *panel)
 {
 	int rc = 0;
+	bool notify = false;
 
 	if (!panel) {
 		DSI_ERR("invalid params\n");
@@ -4513,14 +4519,19 @@ int dsi_panel_set_lp2(struct dsi_panel *panel)
 	if (rc)
 		DSI_ERR("[%s] failed to send DSI_CMD_SET_LP2 cmd, rc=%d\n",
 		       panel->name, rc);
+	notify = !rc;
 exit:
 	mutex_unlock(&panel->panel_lock);
+	/* stock: U2_UNBLANK (doze) */
+	if (notify)
+		timelm_panel_notify(LGE_PANEL_EVENT_BLANK, LGE_PANEL_STATE_LP2);
 	return rc;
 }
 
 int dsi_panel_set_nolp(struct dsi_panel *panel)
 {
 	int rc = 0;
+	bool notify = false;
 
 	if (!panel) {
 		DSI_ERR("invalid params\n");
@@ -4543,8 +4554,12 @@ int dsi_panel_set_nolp(struct dsi_panel *panel)
 	if (rc)
 		DSI_ERR("[%s] failed to send DSI_CMD_SET_NOLP cmd, rc=%d\n",
 		       panel->name, rc);
+	notify = !rc;
 exit:
 	mutex_unlock(&panel->panel_lock);
+	/* doze -> on: back to normal touch reporting (U3) */
+	if (notify)
+		timelm_panel_notify(LGE_PANEL_EVENT_BLANK, LGE_PANEL_STATE_UNBLANK);
 	return rc;
 }
 
@@ -4903,7 +4918,7 @@ int dsi_panel_enable(struct dsi_panel *panel)
 
 error:
 	mutex_unlock(&panel->panel_lock);
-	if (!rc)
+	if (!rc && !timelm_panel_lge_enable_to_lp(panel))
 		timelm_panel_notify(LGE_PANEL_EVENT_BLANK, LGE_PANEL_STATE_UNBLANK);
 	return rc;
 }
