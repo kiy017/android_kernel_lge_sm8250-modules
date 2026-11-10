@@ -206,11 +206,13 @@ struct sde_connector_ops {
 	 * @display: Pointer to private display structure
 	 * @params: Parameter bundle of connector-stored information for
 	 *	kickoff-time programming into the display
+	 * @force_update_dsi_clocks: Bool to force dsi clocks
 	 * Returns: Zero on success
 	 */
 	int (*pre_kickoff)(struct drm_connector *connector,
 			void *display,
-			struct msm_display_kickoff_params *params);
+			struct msm_display_kickoff_params *params,
+			bool force_update_dsi_clocks);
 
 	/**
 	 * clk_ctrl - perform clk enable/disable on the connector
@@ -579,6 +581,7 @@ struct sde_connector {
 	int dpms_mode;
 	int lp_mode;
 	int last_panel_power_mode;
+	int max_esd_check_power_mode;
 
 	struct msm_property_info property_info;
 	struct msm_property_data property_data[CONNECTOR_PROP_COUNT];
@@ -637,6 +640,9 @@ struct sde_connector {
 	struct sde_misr_sign previous_misr_sign;
 
 	bool hwfence_wb_retire_fences_enable;
+
+	/* Xiaomi qsync min-fps property (generic, kept) */
+	u32 qsync_min_fps_index;
 };
 
 /**
@@ -677,6 +683,14 @@ struct sde_connector {
  */
 #define sde_connector_get_qsync_mode(C) \
 	((C) ? to_sde_connector((C))->qsync_mode : 0)
+
+/**
+ * sde_connector_get_qsync_min_fps_setted - get sde connector's qsync_mode
+ * @C: Pointer to drm connector structure
+ * Returns: Current cached qsync_mode for given connector
+ */
+#define sde_connector_get_qsync_min_fps_setted(C) \
+       ((C) ? to_sde_connector((C))->qsync_min_fps_index : 0)
 
 /**
  * sde_connector_get_avr_step - get sde connector's avr_step
@@ -769,6 +783,13 @@ struct sde_connector_state {
  */
 #define sde_connector_get_out_fb(S) \
 	((S) ? to_sde_connector_state((S))->out_fb : 0)
+
+/**
+ * sde_connector_update_panel_dead - update connector panel_dead property
+ * @conn: pointer to drm connector
+ * @is_dead: bool to set panel_dead property
+ */
+void sde_connector_update_panel_dead(struct drm_connector *conn, bool is_dead);
 
 /**
  * sde_connector_get_kms - helper to get sde_kms from connector
@@ -1066,11 +1087,21 @@ int sde_connector_register_custom_event(struct sde_kms *kms,
 		struct drm_connector *conn_drm, u32 event, bool en);
 
 /**
- * sde_connector_pre_kickoff - trigger kickoff time feature programming
+ * sde_connector_update_complete_commit - trigger time feature programming
  * @connector: Pointer to drm connector object
+ * @force_update_dsi_clocks: Bool to force update dsi clocks
  * Returns: Zero on success
  */
-int sde_connector_pre_kickoff(struct drm_connector *connector);
+int sde_connector_update_complete_commit(struct drm_connector *connector,
+		bool force_update_dsi_clocks);
+
+/**
+ * sde_connector_pre_kickoff - trigger kickoff time feature programming
+ * @connector: Pointer to drm connector object
+ * @force_update_dsi_clocks: Bool to force update dsi clocks
+ * Returns: Zero on success
+ */
+int sde_connector_pre_kickoff(struct drm_connector *connector, bool force_update_dsi_clocks);
 
 /**
  * sde_connector_prepare_commit - trigger commit time feature programming
@@ -1335,6 +1366,8 @@ int sde_connector_esd_status(struct drm_connector *connector);
 const char *sde_conn_get_topology_name(struct drm_connector *conn,
 		struct msm_display_topology topology);
 
+void _sde_connector_report_panel_dead(struct sde_connector *conn,
+		bool skip_pre_kickoff);
 /*
  * sde_connector_is_line_insertion_supported - get line insertion
  * feature bit value from panel

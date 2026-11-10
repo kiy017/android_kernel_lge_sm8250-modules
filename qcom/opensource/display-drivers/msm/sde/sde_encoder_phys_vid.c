@@ -610,6 +610,9 @@ static void sde_encoder_phys_vid_cont_splash_mode_set(
 	phys_enc->enable_state = SDE_ENC_ENABLED;
 
 	_sde_encoder_phys_vid_setup_irq_hw_idx(phys_enc);
+
+	phys_enc->kickoff_timeout_ms =
+		sde_encoder_helper_get_kickoff_timeout_ms(phys_enc->parent);
 }
 
 static void sde_encoder_phys_vid_mode_set(

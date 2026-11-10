@@ -991,7 +991,7 @@ static void _sde_kms_drm_check_dpms(struct drm_atomic_state *old_state,
 	struct drm_crtc_state *old_crtc_state;
 	struct drm_crtc *crtc;
 	struct sde_connector *c_conn;
-	int i, old_mode, new_mode, old_fps, new_fps;
+	int i, old_mode, new_mode, old_fps, new_fps, ddic_mode, fps, ddic_min_fps;
 	enum panel_event_notifier_tag panel_type;
 
 	for_each_old_connector_in_state(old_state, connector,
@@ -1001,14 +1001,29 @@ static void _sde_kms_drm_check_dpms(struct drm_atomic_state *old_state,
 		if (!crtc)
 			continue;
 
-		new_fps = drm_mode_vrefresh(&crtc->state->mode);
+		if (crtc->state->mode.hskew) {
+			ddic_mode = crtc->state->mode.hskew >> 14;
+			fps = (crtc->state->mode.hskew >> 7) & 0x7F;
+			ddic_min_fps = crtc->state->mode.hskew & 0x7F;
+			new_fps = (ddic_mode * 100000) + (fps * 100) + ddic_min_fps;
+		}
+		else
+			new_fps = drm_mode_vrefresh(&crtc->state->mode);
 		new_mode = _sde_kms_get_blank(crtc->state, connector->state);
 
 		if (old_conn_state->crtc) {
 			old_crtc_state = drm_atomic_get_existing_crtc_state(
 					old_state, old_conn_state->crtc);
 
-			old_fps = drm_mode_vrefresh(&old_crtc_state->mode);
+			if (old_crtc_state->mode.hskew) {
+				ddic_mode = old_crtc_state->mode.hskew >> 14;
+				fps = (old_crtc_state->mode.hskew >> 7) & 0x7F;
+				ddic_min_fps = old_crtc_state->mode.hskew & 0x7F;
+				old_fps = (ddic_mode * 100000) + (fps * 100) + ddic_min_fps;
+			}
+			else
+				old_fps = drm_mode_vrefresh(&old_crtc_state->mode);
+
 			old_mode = _sde_kms_get_blank(old_crtc_state,
 							old_conn_state);
 		} else {
@@ -1016,7 +1031,7 @@ static void _sde_kms_drm_check_dpms(struct drm_atomic_state *old_state,
 			old_mode = DRM_PANEL_EVENT_BLANK;
 		}
 
-		if ((old_mode != new_mode) || (old_fps != new_fps)) {
+		if ((old_mode != new_mode) || ((old_fps != new_fps) && (old_fps != 0))) {
 			c_conn = to_sde_connector(connector);
 			SDE_EVT32(old_mode, new_mode, old_fps, new_fps,
 				c_conn->panel, crtc->state->active,
@@ -1594,6 +1609,7 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 	struct drm_crtc_state *old_crtc_state;
 	struct drm_connector *connector;
 	struct drm_connector_state *old_conn_state;
+	struct drm_encoder *drm_enc;
 	struct msm_display_conn_params params;
 	struct sde_vm_ops *vm_ops;
 	int i, rc = 0;
@@ -1615,6 +1631,13 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 
 	for_each_old_crtc_in_state(old_state, crtc, old_crtc_state, i) {
 		sde_crtc_complete_commit(crtc, old_crtc_state);
+
+		drm_for_each_encoder_mask(drm_enc, crtc->dev, old_crtc_state->encoder_mask) {
+			if (sde_encoder_in_clone_mode(drm_enc))
+				continue;
+
+			sde_encoder_update_complete_commit(drm_enc, old_crtc_state);
+		}
 
 		/* complete secure transitions if any */
 		if (sde_kms->smmu_state.transition_type == POST_COMMIT)

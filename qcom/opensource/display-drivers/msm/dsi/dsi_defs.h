@@ -286,6 +286,7 @@ enum dsi_cmd_set_type {
 	DSI_CMD_SET_VID_SWITCH_OUT,
 	DSI_CMD_SET_CMD_SWITCH_IN,
 	DSI_CMD_SET_CMD_SWITCH_OUT,
+	DSI_CMD_SET_PANEL_STATUS_OFFSET,
 	DSI_CMD_SET_PANEL_STATUS,
 	DSI_CMD_SET_LP1,
 	DSI_CMD_SET_LP2,
@@ -528,6 +529,8 @@ struct dsi_host_common_cfg {
 	u32 byte_intf_clk_div;
 	u32 dma_sched_line;
 	u32 dma_sched_window;
+	u32 clk_strength;
+	u32 deemph_eq_strength;
 	u32 vpadding;
 	bool line_insertion_enable;
 };
@@ -606,6 +609,7 @@ struct dsi_host_config {
 	struct dsi_mode_info video_timing;
 	struct dsi_lane_map lane_map;
 };
+
 
 /**
  * struct dsi_display_mode_priv_info - private mode info that will be attached

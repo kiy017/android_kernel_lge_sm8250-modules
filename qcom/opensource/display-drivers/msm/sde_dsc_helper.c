@@ -568,6 +568,7 @@ int sde_dsc_create_pps_buf_cmd(struct msm_display_dsc_info *dsc_info,
 	}
 
 	if (dsc->dsc_version_minor == 0x2) {
+		data = 0;
 		if (dsc->native_422)
 			data = BIT(0);
 		else if (dsc->native_420)
