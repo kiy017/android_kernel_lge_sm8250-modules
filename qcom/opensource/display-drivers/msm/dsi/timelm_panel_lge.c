@@ -14,8 +14,10 @@
 #include <linux/sysfs.h>
 #include <video/mipi_display.h>
 
+#include "dsi_display.h"
 #include "dsi_panel.h"
 #include "dsi_parser.h"
+#include "sde_connector.h"
 #include "timelm_panel_lge.h"
 
 /*
@@ -1023,3 +1025,30 @@ void timelm_panel_lge_disable_locked(struct dsi_panel *panel)
 	    (timelm_lhbm.ready || timelm_lhbm_is_on(timelm_lhbm.old_mode)))
 		timelm_lhbm_apply_locked(panel, TIMELM_LHBM_EXIT);
 }
+
+/*
+ * The power mode of the commit that is enabling the panel.  OFF -> doze
+ * enables the panel first and runs set_power(LP1/LP2) at the next kickoff,
+ * so the touch core must not get UNBLANK in between: it would leave LPWG
+ * (knock-on, fingerprint long press) for normal reporting, which Android
+ * ignores while dozing.  Stock lge_dsi_panel.c sends UNBLANK only when
+ * lp_state is NOLP.
+ */
+bool timelm_panel_lge_enable_to_lp(struct dsi_panel *panel)
+{
+	struct dsi_display *display;
+	struct drm_connector *conn;
+	u64 lp;
+
+	if (!panel->host)
+		return false;
+
+	display = container_of(panel->host, struct dsi_display, host);
+	conn = display->drm_conn;
+	if (!conn || !conn->state)
+		return false;
+
+	lp = sde_connector_get_property(conn->state, CONNECTOR_PROP_LP);
+	return lp == SDE_MODE_DPMS_LP1 || lp == SDE_MODE_DPMS_LP2;
+}
+
