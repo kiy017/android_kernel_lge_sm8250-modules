@@ -538,24 +538,6 @@ int msm_cvp_smem_cache_operations(struct dma_buf *dbuf,
 		return rc;
 	}
 
-	/*
-	 * timelm: the upstream "system" heap has no *_cpu_access_partial ops,
-	 * so dma_buf_*_cpu_access_partial() would skip the cache maintenance
-	 * (see msm_vidc img98).  Fall back to the whole-buffer ops, which sync
-	 * every mapped attachment.
-	 */
-	if (!dbuf->ops->begin_cpu_access_partial ||
-	    !dbuf->ops->end_cpu_access_partial) {
-		enum dma_data_direction dir =
-			cache_op == SMEM_CACHE_INVALIDATE ?
-				DMA_FROM_DEVICE : DMA_TO_DEVICE;
-
-		rc = dma_buf_begin_cpu_access(dbuf, DMA_TO_DEVICE);
-		if (!rc)
-			rc = dma_buf_end_cpu_access(dbuf, dir);
-		return rc;
-	}
-
 	switch (cache_op) {
 	case SMEM_CACHE_CLEAN:
 	case SMEM_CACHE_CLEAN_INVALIDATE:
