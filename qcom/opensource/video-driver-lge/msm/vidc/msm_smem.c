@@ -25,7 +25,9 @@
  * timelm: 5.15 qcom dma-heaps have no get_flags op, so dma_buf_get_flags()
  * leaves the flags 0.  As in the camera port, report every buffer as cached
  * (the heaps' begin/end_cpu_access already skip uncached buffers) and derive
- * SECURE from mem-buf ownership, as the 5.15 iris driver does.
+ * SECURE from mem-buf ownership, as the 5.15 iris driver does.  The 5.15
+ * iris driver skips cache maintenance for these buffers, but the kona Codec2
+ * HAL relies on the driver for it (img98: stale bitstream), so it stays.
  */
 static int timelm_dma_buf_get_flags(struct dma_buf *dbuf, unsigned long *flags)
 {
@@ -615,27 +617,6 @@ int msm_smem_cache_operations(struct dma_buf *dbuf,
 			__func__, rc);
 		return rc;
 	} else if (!(flags & ION_FLAG_CACHED)) {
-		return rc;
-	}
-
-	/*
-	 * timelm: the upstream "system" heap (C2 linear blocks, cached gralloc
-	 * buffers via the ION shim) has no *_cpu_access_partial ops, so
-	 * dma_buf_*_cpu_access_partial() only waits for fences and skips the
-	 * cache maintenance.  The attachment is mapped with SKIP_CPU_SYNC, so
-	 * nothing else cleans/invalidates: Venus reads stale bitstream from
-	 * DRAM and the CPU reads stale encoder output.  Fall back to the
-	 * whole-buffer ops, which sync every mapped attachment (the vidc CB).
-	 */
-	if (!dbuf->ops->begin_cpu_access_partial ||
-	    !dbuf->ops->end_cpu_access_partial) {
-		enum dma_data_direction dir =
-			cache_op == SMEM_CACHE_INVALIDATE ?
-				DMA_FROM_DEVICE : DMA_TO_DEVICE;
-
-		rc = dma_buf_begin_cpu_access(dbuf, DMA_TO_DEVICE);
-		if (!rc)
-			rc = dma_buf_end_cpu_access(dbuf, dir);
 		return rc;
 	}
 
