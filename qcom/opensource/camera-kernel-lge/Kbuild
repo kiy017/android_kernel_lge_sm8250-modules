@@ -19,7 +19,8 @@ ccflags-y += -DTIMELM_CAM_GLOBAL_SYNX=1
 ccflags-y += -I$(srctree)/drivers/media/platform/msm/synx
 CONFIG_MACH_LGE := y
 
-cam_include_dirs := $(shell find $(CAM)/drivers -name '*.h' -printf '%h\n' | sort -u)
+# toybox find (ROM build) has no -printf %h
+cam_include_dirs := $(sort $(dir $(shell find $(CAM)/drivers -name '*.h')))
 ccflags-y += -I$(CAM)/include/uapi -I$(CAM)/include
 ccflags-y += $(addprefix -I,$(cam_include_dirs))
 
