@@ -489,7 +489,8 @@ TRACE_EVENT(smcinvoke_release,
 #endif /* _TRACE_SMCINVOKE_H */
 
 #undef TRACE_INCLUDE_PATH
-#define TRACE_INCLUDE_PATH ../../../../sm8550-modules/qcom/opensource/securemsm-kernel/smcinvoke
+/* timelm: relative to include/trace via the kernel techpack/qce symlink */
+#define TRACE_INCLUDE_PATH ../../techpack/qce/securemsm-kernel/smcinvoke
 
 #undef TRACE_INCLUDE_FILE
 #define TRACE_INCLUDE_FILE trace_smcinvoke
