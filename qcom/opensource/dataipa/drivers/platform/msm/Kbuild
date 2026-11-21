@@ -50,6 +50,13 @@ endif
 endif
 endif
 
+#kona (IPA v4.5), built in-tree through the kernel's techpack/dataipa link
+ifeq ($(CONFIG_ARCH_KONA), y)
+DATAIPADRVTOP = $(srctree)/techpack/dataipa/drivers/platform/msm
+LINUXINCLUDE    += -include $(srctree)/techpack/dataipa/config/dataipa_vendor_ipav4.h
+include $(srctree)/techpack/dataipa/config/dataipa_GKI_ipav4.conf
+endif
+
 #APQS-LE
 ifeq ($(CONFIG_ARCH_KALAMA),y)
 ifeq ($(CONFIG_KALAMA_IPA_LE),y)

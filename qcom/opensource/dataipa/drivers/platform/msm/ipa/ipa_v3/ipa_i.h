@@ -591,6 +591,7 @@ enum ipa_icc_path {
 	IPA_ICC_LLCC_TO_EBIL,
 	IPA_ICC_IPA_TO_IMEM,
 	IPA_ICC_APSS_TO_IPA,
+	IPA_ICC_IPA_CORE,	/* kona: IPA core clock is the IP0 BCM vote */
 	IPA_ICC_PATH_MAX,
 };
 
